@@ -3,6 +3,22 @@ app-manager
 
 Manage webapp configuration and health
 
+## Todos 
+[X] Design and Usage
+[ ] Bootstrapper in python
+[ ] Native Support
+   [ ] client library
+      [ ] python
+      [ ] java
+   [ ] dropwizard plugin (use the client library)
+   [ ] python plugin (use the client library)
+[ ] app-manager webservice
+   [X] REST API
+   [ ] schema design
+[ ] polling script (http status)
+[ ] polling script dropwiz
+
+
 ## How does it work
 ###### Bootstrap (For working with existing application)
 This is a python script launcher that read configuration from app-manager and write it to file system.  It then set the environment variable and launch the application.  The advantage of using a bootstrapper is that all of the application does not need to have any dependency on this service.
