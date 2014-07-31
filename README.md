@@ -4,6 +4,7 @@ app-manager
 Manage webapp configuration and health
 
 ## Todos 
+```
 [X] Design and Usage
 [ ] Bootstrapper in python
 [ ] Native Support
@@ -17,7 +18,7 @@ Manage webapp configuration and health
    [ ] schema design
 [ ] polling script (http status)
 [ ] polling script dropwiz
-
+```
 
 ## How does it work
 ###### Bootstrap (For working with existing application)
