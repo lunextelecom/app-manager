@@ -4,30 +4,38 @@ app-manager
 Manage webapp configuration and health
 
 ## How does it work
-###### Using Boostrap
+###### Bootstrap (For working with existing application)
+This is a python script launcher that read configuration from app-manager and write it to file system.  It then set the environment variable and launch the application.  The advantage of using a bootstrapper is that all of the application does not need to have any dependency on this service.
+
 ```
-1. start application bootstrap 
-2. check and download new configuration, log from app-manager
-3. starts application
+1. start application bootstrap script 
+2. check current version(a local file with verison number)
+3. compared with remote version, downlaod new configuration if needed 
+4. update versions file
+5. starts application
 ```
 
-###### Native support
+###### Native support (via plugins or library calls)
+Application can also communicate directly with this webservice for configuration.  In this case, it can take advantage of pull/push delivery which make configuration update easier to manage.  Depending on what configuration is change, the application itself must handle the change needed for setting changes.  For example, if it is the database connection that is change, the application should have logics to reload the database connections.
+Native support is done via a Plugin(bottle, Dropwizard) and direct library calls functions.
+
 ```
-1. starts application
-2. check localfile version and remote version. Use the later one.
-3. continue loading the application
+1. starts application which with plugins or calling library functions
+2. check current version(a local file with verison number)
+3. compared with remote version, downlaod new configuration if needed 
+4. update versions file
+5. Optional(register app) with callback for config_url, health_url
+   these information can also be stored in the configuration.
+6. continue with application initialization
 
 Notes: during development it is not ideal to use remote, so there should be a start up option to use local file.
 ```
 
-###### Bootstrap (For working with existing application)
-This is a python script launcher that read configuration from app-manager and write it to file system.  It then set the environment variable and launch the application.  The advantage of using a bootstrapper is that all of the application does not need to have any dependency on this service.
-
-###### Native support
-Application can also communicate directly with this webservice for configuration.  In this case, it can take advantage of pull/push delivery which make configuration update easier to manage.  Depending on what configuration is change, the application itself must handle the change needed for setting changes.  For example, if it is the database connection that is change, the application should have logics to reload the database connections.
-
 ###### Application configuration
 Application configuration and log configuration are stored in the server.  Each application can have multiple instance which can be install in multiple server. A unique instance can be define by appname@[instance_string].  A meaningful instance_string can be server:port so it is easier to manage webapp.
+###### Minimal configuration
+1. app-manager Url
+2. instance name
 
 ## Configuration Web Service (App-Manager)
 Web service providing storage and delivery of application configuration
@@ -51,12 +59,18 @@ PUT /config?instance=
 
 DELETE /config?instance=
 #register application.  Once an app is register, the app manager will poll it for health statistic and push update configuration to it. 
-POST /app?instance=
+POST /app?instance=&config_url=&health_url=&
 
 #unregister application
 DELETE /app?instance=
 ```
 
+###### Webapp's config change
+```
+GET {config_url}?variable=newvalue
+PUT {config_url}?variable=newvalue
+body containing the variable changes or the entire configuration.
+```
 ## Health Web Service
 Centralized location for application to report health status.  Support for Dropwizard health.  Relay information to graphite for time series metric
 * Health statistic
@@ -64,5 +78,8 @@ Centralized location for application to report health status.  Support for Dropw
   * Build timeseries data, relay to graphite (polling )  
   * Notify when webapp goes down  
 
-## UI
-TBD
+###### Old application
+For old application, polling is consider anything url with http status 200 as up and anything else as down.
+
+###### Drop wizard health
+A drop wizard URL can be register during application startup.  
