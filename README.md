@@ -8,6 +8,7 @@ Manage webapp configuration and health
 [X] Design and Usage
 [ ] Bootstrapper in python
 [ ] Native Support
+   [ ] define client library functions
    [ ] client library
       [ ] python
       [ ] java
