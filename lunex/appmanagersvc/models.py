@@ -44,12 +44,14 @@ class Application(models.Model):
     class Meta:
         db_table = 'app_application'
         unique_together = ['Instance']
-    Instance = models.CharField(max_length=100)
+    AppName = models.CharField(max_length=100)
+    Instance = models.CharField(max_length=100,null=True)
+    Parent = models.ForeignKey('Application', db_column='ParentId', null=True, related_name='children')# models.IntegerField(null=True)
     CreatedBy = models.CharField(max_length=20)
     CreatedDate = models.DateTimeField(auto_now_add=True)
     UpdatedBy = models.CharField(max_length=20, null=True)
-    UpdatedDate = models.DateTimeField(auto_now=True)
-    
+    UpdatedDate = models.DateTimeField(auto_now=True)    
+
 class Configuration(models.Model):
     class Meta:
         db_table = 'app_configuration'
@@ -57,6 +59,7 @@ class Configuration(models.Model):
     Application = models.ForeignKey(Application)
     ConfigUrl = models.CharField(max_length=100)
     HealthUrl = models.CharField(max_length=100)
+    Filename = models.TextField()
     Content = models.TextField()
     MimeType = models.CharField(max_length=20)
     CreatedBy = models.CharField(max_length=20)

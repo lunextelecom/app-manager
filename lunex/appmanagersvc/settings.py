@@ -13,7 +13,7 @@ DATABASES = {
         'NAME': 'appmanager',
         'ENGINE': 'mysql',
         'USER': 'root',
-        'PASSWORD': '',
+        'PASSWORD': '123456',
         'HOST': 'localhost',
         'SUPPORTS_TRANSACTIONS': True,
     },

@@ -10,7 +10,7 @@ import settings
 import simplejson
 from bottle import route, run, error, get, post, request, response, static_file
 from gevent.pywsgi import WSGIServer
-from lunex.utilities import httputils
+#from lunex.utilities import httputils
 from lunex.appmanagersvc.models import Application, Configuration
 from django.db import transaction
 app = bottle.Bottle()
@@ -41,12 +41,29 @@ def get_config():
         params = dict(request.query.items())
         instance = params.get('instance', '').strip()
         assert instance, 'Instance is invalid'
+        
+        appName = None;
+        try :
+            appName = instance.split("@")[0]
+        except Exception:
+            assert instance, 'instance param is invalid'
+        parent_obj = Application.objects.filter(AppName=appName)
+        if parent_obj :
+            parent_obj = parent_obj[0]
+        else:
+            raise Exception('App [%s] does not exist' % appName)
         try:
-            #app_obj = Application.objects.get(Instance=instance)
-            app_obj = Application.objects.get(Instance__icontains=instance)
+            app_obj = Application.objects.get(Instance=instance)
         except Application.DoesNotExist:
             raise Exception('Instance [%s] does not exist' % instance)
-        config_obj = Configuration.objects.get(Application=app_obj)
+        if not Configuration.objects.filter(Application=app_obj).exists():
+            if not Configuration.objects.filter(Application=parent_obj).exists():
+                return {'Code': -1, 'Message':'config does not exist'}
+            else:
+                config_obj = Configuration.objects.get(Application=parent_obj)
+        else:
+            config_obj = Configuration.objects.get(Application=app_obj)
+        
         content = config_obj.Content
         mime_type = config_obj.MimeType
         if mime_type not in map_ext_dict:
@@ -62,12 +79,57 @@ def get_config():
     except Exception, ex:
         logger.exception(ex)
         return {'Code': -1, 'Message': ex.__str__()}
-    
+
+'''
+PUT /config?app=&instance=&config_url=&health_url=&content_type=&filename=&content=
+app/instance: required
+config_url, health_url, content_type, filename, content: optional
+
+'''    
 @app.route('/config', method='PUT', name='save_config')
 @app.route('/config/', method='PUT', name='save_config')
 def save_config():
     try:
+        paramsPost = dict(request.json) 
         params = dict(request.query.items())
+        params.update(paramsPost)
+        appName = params.get('app', '').strip()
+        instance = params.get('instance', '').strip()
+        if not appName and not instance:
+            return {'Code': -1, 'Message':'app/instance param can not be null'}
+        app_obj = None
+        if appName :
+            if not Application.objects.filter(AppName=appName).exists():
+                return {'Code': -1, 'Message':'app does not exist'}
+            else:
+                app_obj = Application.objects.filter(AppName=appName)[0]
+        else:
+            if not Application.objects.filter(Instance=instance).exists():
+                return {'Code': -1, 'Message':'instance does not exist'}
+            else:
+                app_obj = Application.objects.filter(Instance=instance)[0]
+        config_url = params.get('config_url', '')
+        health_url = params.get('health_url', '')
+        content_type = params.get('content_type', '')
+        filename = params.get('filename', '')
+        content = params.get('content', '')
+        conf = Configuration(Application=app_obj)
+        if Configuration.objects.filter(Application=app_obj).exists() :
+            conf = Configuration.objects.filter(Application=app_obj)[0]
+            
+        if config_url:
+            conf.ConfigUrl = config_url
+        if health_url:
+            conf.HealthUrl = config_url
+        if content_type:
+            conf.MimeType = content_type
+        if content:
+            conf.Content = content
+        if filename:
+            conf.Filename = filename
+        conf.save()
+        return {'Code': 1}
+       
     except Exception, ex:
         logger.exception(ex)
         return {'Code': -1, 'Message': ex.__str__()}
@@ -77,6 +139,15 @@ def save_config():
 def delete_config():
     try:
         params = dict(request.query.items())
+        instance = params.get('instance', '').strip()
+        assert instance, 'instance param is invalid'
+
+        if Application.objects.filter(Instance=instance).exists() :
+            app_obj = Application.objects.filter(Instance=instance)[0]
+            if Configuration.objects.filter(Application=app_obj).exists() :
+                conf = Configuration.objects.filter(Application=app_obj)
+                conf.delete()
+        return {'Code': 1}
     except Exception, ex:
         logger.exception(ex)
         return {'Code': -1, 'Message': ex.__str__()}
@@ -86,19 +157,56 @@ def delete_config():
 @transaction.commit_manually
 def register_app():
     try:
+        paramsPost = dict(request.json) 
         params = dict(request.query.items())
+        params.update(paramsPost)
         instance = params.get('instance', '').strip()
+        createdBy = params.get('createdby', '').strip()
+        assert createdBy, 'createdBy param can not null'
         assert instance, 'instance param is invalid'
-        config_url = params.get('config_url', '').strip()
-        assert config_url, 'config_url param is invalid'
-        health_url = params.get('health_url', '').strip()
-        assert health_url, 'health_url param is invalid'
-        app_obj = Application(Instance=instance)
-        app_obj.save()
-        conf = Configuration(Application=app_obj, ConfigUrl=config_url, HealthUrl=health_url)
-        
-        conf.save()
-        transaction.commit()
+        appName = None;
+        try :
+            appName = instance.split("@")[0]
+        except Exception:
+            assert instance, 'instance param is invalid'
+        parent_obj = Application.objects.filter(AppName=appName)
+        if parent_obj :
+            parent_obj = parent_obj[0]
+        else:
+            parent_obj = Application(AppName=appName, CreatedBy=createdBy)
+            parent_obj.save()
+        if not Application.objects.filter(Instance=instance).exists() :
+            
+            app_obj = Application(AppName=appName, Instance=instance, Parent=parent_obj, CreatedBy=createdBy)
+            app_obj.save()
+            config_url = params.get('config_url', '')
+            health_url = params.get('health_url', '')
+            mime_type = params.get('mime_type', '')
+            filename = params.get('filename', '')
+            content = params.get('content', '')
+            isCreateConf = False
+            conf = Configuration(Application=app_obj)
+            if config_url:
+                isCreateConf = True
+                conf.ConfigUrl = config_url
+            if health_url:
+                isCreateConf = True
+                conf.HealthUrl = config_url
+            if mime_type:
+                isCreateConf = True
+                conf.MimeType = mime_type
+            if content:
+                isCreateConf = True
+                conf.Content = content
+            if filename:
+                isCreateConf = True
+                conf.Filename = filename
+            if isCreateConf == True:
+                conf.save()
+            transaction.commit()
+            return {'Code': 1}
+        else:
+            return {'Code': -1, 'Message': 'instance has already been created'}
     except Exception, ex:
         transaction.rollback()
         logger.exception(ex)
@@ -108,7 +216,19 @@ def register_app():
 @app.route('/app/', method='DELETE', name='unregister_app')
 def unregister_app():
     try:
+        paramsPost = dict(request.json) 
         params = dict(request.query.items())
+        params.update(paramsPost)
+        instance = params.get('instance', '').strip()
+        assert instance, 'instance param is invalid'
+        if Application.objects.filter(Instance=instance).exists() :
+            app_obj = Application.objects.filter(Instance=instance)[0]
+            if Configuration.objects.filter(Application=app_obj).exists() :
+                conf = Configuration.objects.filter(Application=app_obj)
+                conf.delete()
+            app_obj.delete()
+            
+            
     except Exception, ex:
         logger.exception(ex)
         return {'Code': -1, 'Message': ex.__str__()}
@@ -120,19 +240,37 @@ def list_instance():
     try:
         params = dict(request.query.items())
         instance = params.get('instance', '').strip()
-        apps = Application.objects.all()
+        apps = Application.objects.filter(Parent__isnull=False)
         if instance:
-            apps = apps.filter(Instance=instance)
+            apps = apps.filter(Instance__icontains=instance)
             
         app_list = []
         for item in apps:
+            item.Parent
             r = {}
+            getFromChild = False
+            tmpContent = None
+            tmpFilename = None
             r['Id'] = item.pk
             r['Instance'] = item.Instance
+            
             r['CreatedBy'] = item.CreatedBy
             r['CreatedDate'] = item.CreatedDate.strftime('%m/%d/%Y %I:%M:%S %p')
             r['UpdatedBy'] = item.UpdatedBy if item.UpdatedBy else None
             r['UpdatedDate'] = item.UpdatedDate.strftime('%m/%d/%Y %I:%M:%S %p') if item.UpdatedDate else None
+            if Configuration.objects.filter(Application=item).exists() :
+                conf = Configuration.objects.filter(Application=item)[0]
+                tmpContent = conf.Content
+                tmpFilename = conf.Filename
+                getFromChild = True
+            if getFromChild==False:
+                if Configuration.objects.filter(Application=item.Parent).exists() :
+                    conf = Configuration.objects.filter(Application=item.Parent)[0]
+                    if conf.Content:
+                        tmpContent = conf.Content
+                        tmpFilename = conf.Filename
+            r['Content'] = tmpContent
+            r['Filename'] = tmpFilename
             app_list.append(r)
             
         result['Result'] = app_list
@@ -155,7 +293,7 @@ if __name__ == "__main__":
     parser.add_argument("-p", help="port")
     args = parser.parse_args()    
     ip_addr = '0.0.0.0'
-    port = 8080
+    port = 8090
     if args.i:
         ip_addr = args.i
     if args.p:
