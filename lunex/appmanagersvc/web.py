@@ -44,8 +44,9 @@ def get_config():
         if not isGetFromApp:
             isGetFromApp = False
         assert instance, 'Instance is invalid'
-        
-        appName = None;
+        code = 0
+        message = ''
+        appName = None
         try :
             appName = instance.split("@")[0]
         except Exception:
@@ -62,25 +63,31 @@ def get_config():
         if not Configuration.objects.filter(Application=app_obj).exists():
             if isGetFromApp==True:
                 if not Configuration.objects.filter(Application=parent_obj).exists():
-                    return {'Code': -1, 'Message':'config does not exist'}
+                    code = -1
+                    message = 'config does not exist'
+                   
                 else:
                     config_obj = Configuration.objects.get(Application=parent_obj)
             else:
-                return {'Code': -1, 'Message':'config does not exist'}
+                code = -1
+                message = 'config does not exist'
+                
         else:
             config_obj = Configuration.objects.get(Application=app_obj)
-        
-        content = config_obj.Content
-        mime_type = config_obj.MimeType
-        if mime_type not in map_ext_dict:
-            raise Exception('MimeType [%s] is invalid' % mime_type)
-        ext = map_ext_dict[mime_type]
-        name = static_path + '/' + instance.replace(':', '_')#datetime.now().strftime('%m_%d_%Y_%H_%m_%S')
-        file_name = '%s.%s' % (name, ext)
-        afile = open(file_name, 'w')
-        afile.write(content)
-        afile.close()
-        return static_file(filename=file_name, root=static_path, download=file_name)
+        if code != -1:
+            content = config_obj.Content
+            mime_type = config_obj.MimeType
+            if mime_type not in map_ext_dict:
+                raise Exception('MimeType [%s] is invalid' % mime_type)
+            ext = map_ext_dict[mime_type]
+            name = static_path + '/' + instance.replace(':', '_')#datetime.now().strftime('%m_%d_%Y_%H_%m_%S')
+            file_name = '%s.%s' % (name, ext)
+            afile = open(file_name, 'w')
+            afile.write(content)
+            afile.close()
+            return static_file(filename=file_name, root=static_path, download=file_name)
+        else:
+            return {'Code': code, 'Message':message}
     
     except Exception, ex:
         logger.exception(ex)

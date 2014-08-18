@@ -3,7 +3,13 @@ Created on Aug 11, 2014
 
 @author: Duc Le
 '''
-if __name__ == "__main__":
-    str = "Line1-abcdef \nLine2-abc \nLine4-abcd";
-    lst=str.split(" ")
-    print lst[0]
+DATABASES = {
+    'default': {
+        'NAME': 'appmanager',
+        'ENGINE': 'mysql',
+        'USER': 'lunexuser',
+        'PASSWORD': 'inn0v@tion',
+        'HOST': '10.9.9.61',
+        'SUPPORTS_TRANSACTIONS': True,
+    }
+}
