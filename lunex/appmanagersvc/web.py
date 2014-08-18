@@ -297,7 +297,48 @@ def list_instance():
         result = {'Code': -1, 'Message': ex.__str__()}
     return result
 
-
+@app.route('/app', method='GET', name='get_instance')
+@app.route('/app/', method='GET', name='get_instance')
+def get_instance():
+    result = {'Code': 1, 'Message': ''}
+    try:
+        params = dict(request.query.items())
+        id = params.get('id', '').strip()
+        apps = Application.objects.filter()
+        if id:
+            apps = apps.filter(pk=id)
+            
+        app_list = []
+        for item in apps:
+            item.Parent
+            r = {}
+            r['Id'] = item.pk
+            r['AppName'] = item.AppName
+            r['Instance'] = item.Instance
+            r['CreatedBy'] = item.CreatedBy
+            r['CreatedDate'] = item.CreatedDate.strftime('%m/%d/%Y %I:%M:%S %p')
+            r['UpdatedBy'] = item.UpdatedBy if item.UpdatedBy else None
+            r['Type'] = 1 if item.Parent else 0
+            r['UpdatedDate'] = item.UpdatedDate.strftime('%m/%d/%Y %I:%M:%S %p') if item.UpdatedDate else None
+            r['Content'] = ''
+            r['Filename'] = ''
+            r['ConfigUrl'] = ''
+            r['HealthUrl'] = ''
+            conf = None
+            if Configuration.objects.filter(Application=item).exists() :
+                conf = Configuration.objects.filter(Application=item)[0]
+            if conf:
+                r['Content'] = conf.Content if conf.Content else '' 
+                r['Filename'] = conf.Filename if conf.Filename else '' 
+                r['ConfigUrl'] = conf.ConfigUrl if conf.ConfigUrl else '' 
+                r['HealthUrl'] = conf.HealthUrl if conf.HealthUrl else '' 
+            app_list.append(r)
+            
+        result['Result'] = app_list
+    except Exception, ex:
+        logger.exception(ex)
+        result = {'Code': -1, 'Message': ex.__str__()}
+    return result
 #====================================Init======================================#
 def init_server():
     from django.conf import settings
