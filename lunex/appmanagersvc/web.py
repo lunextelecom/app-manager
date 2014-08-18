@@ -249,28 +249,28 @@ def list_instance():
             item.Parent
             r = {}
             getFromChild = False
-            tmpContent = None
-            tmpFilename = None
             r['Id'] = item.pk
             r['Instance'] = item.Instance
-            
             r['CreatedBy'] = item.CreatedBy
             r['CreatedDate'] = item.CreatedDate.strftime('%m/%d/%Y %I:%M:%S %p')
             r['UpdatedBy'] = item.UpdatedBy if item.UpdatedBy else None
             r['UpdatedDate'] = item.UpdatedDate.strftime('%m/%d/%Y %I:%M:%S %p') if item.UpdatedDate else None
+            r['Content'] = ''
+            r['Filename'] = ''
+            r['ConfigUrl'] = ''
+            r['HealthUrl'] = ''
+            conf = None
             if Configuration.objects.filter(Application=item).exists() :
                 conf = Configuration.objects.filter(Application=item)[0]
-                tmpContent = conf.Content
-                tmpFilename = conf.Filename
                 getFromChild = True
             if getFromChild==False:
                 if Configuration.objects.filter(Application=item.Parent).exists() :
                     conf = Configuration.objects.filter(Application=item.Parent)[0]
-                    if conf.Content:
-                        tmpContent = conf.Content
-                        tmpFilename = conf.Filename
-            r['Content'] = tmpContent
-            r['Filename'] = tmpFilename
+            if conf:
+                r['Content'] = conf.Content if conf.Content else '' 
+                r['Filename'] = conf.Filename if conf.Filename else '' 
+                r['ConfigUrl'] = conf.ConfigUrl if conf.ConfigUrl else '' 
+                r['HealthUrl'] = conf.HealthUrl if conf.HealthUrl else '' 
             app_list.append(r)
             
         result['Result'] = app_list
