@@ -101,64 +101,68 @@ def save_config():
         paramsPost = dict(request.json) 
         params = dict(request.query.items())
         params.update(paramsPost)
-        appName = params.get('app', '').strip()
-        instance = params.get('instance', '').strip()
-        if not appName and not instance:
-            return {'Code': -1, 'Message':'app/instance param can not be null'}
-        app_obj = None
-        if appName :
-            if not Application.objects.filter(AppName=appName).exists():
-                return {'Code': -1, 'Message':'app does not exist'}
-            else:
-                app_obj = Application.objects.filter(AppName=appName)[0]
-        else:
-            if not Application.objects.filter(Instance=instance).exists():
-                return {'Code': -1, 'Message':'instance does not exist'}
-            else:
-                app_obj = Application.objects.filter(Instance=instance)[0]
         config_url = params.get('config_url', '')
         health_url = params.get('health_url', '')
         mime_type = params.get('mime_type', '')
         filename = params.get('filename', '')
         content = params.get('content', '')
-        conf = Configuration(Application=app_obj)
-        if Configuration.objects.filter(Application=app_obj).exists() :
-            conf = Configuration.objects.filter(Application=app_obj)[0]
-            
-        if config_url:
-            conf.ConfigUrl = config_url
-        if health_url:
-            conf.HealthUrl = config_url
-        if mime_type:
-            conf.MimeType = mime_type
-        if content:
-            conf.Content = content
-        if filename:
-            conf.Filename = filename
-        conf.save()
-        return {'Code': 1}
+        code = 1
+        message = 'OK'
+        apps = Application.objects.filter()
+        id = params.get('id', '').strip()
+        if id:
+            apps = apps.filter(pk=id)
+        else:
+            code = -1
+            message = 'id does not exist'
+        if code != -1:
+            for app_obj in apps:
+                conf = Configuration(Application=app_obj)
+                if Configuration.objects.filter(Application=app_obj).exists() :
+                    conf = Configuration.objects.filter(Application=app_obj)[0]
+                if config_url:
+                    conf.ConfigUrl = config_url
+                if health_url:
+                    conf.HealthUrl = health_url
+                if mime_type:
+                    conf.MimeType = mime_type
+                if content:
+                    conf.Content = content
+                if filename:
+                    conf.Filename = filename
+                conf.save()
        
     except Exception, ex:
         logger.exception(ex)
-        return {'Code': -1, 'Message': ex.__str__()}
+        code = -1
+        message = ex.__str__()
+    return {'Code': code, 'Message': message}
 
 @app.route('/config', method='DELETE', name='delete_config')
 @app.route('/config/', method='DELETE', name='delete_config')
 def delete_config():
     try:
         params = dict(request.query.items())
-        instance = params.get('instance', '').strip()
-        assert instance, 'instance param is invalid'
-
-        if Application.objects.filter(Instance=instance).exists() :
-            app_obj = Application.objects.filter(Instance=instance)[0]
-            if Configuration.objects.filter(Application=app_obj).exists() :
-                conf = Configuration.objects.filter(Application=app_obj)
-                conf.delete()
+        code = 1
+        message = 'OK'
+        apps = Application.objects.filter()
+        id = params.get('id', '').strip()
+        if id:
+            apps = apps.filter(pk=id)
+        else:
+            code = -1
+            message = 'id does not exist'
+        if code != -1:
+            for app_obj in apps:
+                if Configuration.objects.filter(Application=app_obj).exists() :
+                    conf = Configuration.objects.filter(Application=app_obj)
+                    conf.delete()
         return {'Code': 1}
     except Exception, ex:
         logger.exception(ex)
-        return {'Code': -1, 'Message': ex.__str__()}
+        code = -1 
+        message = ex.__str__()
+    return {'Code': code, 'Message': message}
 
 @app.route('/app', method='POST', name='register_app')
 @app.route('/app/', method='POST', name='register_app')
@@ -168,6 +172,8 @@ def register_app():
         paramsPost = dict(request.json) 
         params = dict(request.query.items())
         params.update(paramsPost)
+        code = 1
+        message = 'OK'
         instance = params.get('instance', '').strip()
         createdBy = params.get('createdby', '').strip()
         assert createdBy, 'createdBy param can not null'
@@ -184,7 +190,6 @@ def register_app():
             parent_obj = Application(AppName=appName, CreatedBy=createdBy)
             parent_obj.save()
         if not Application.objects.filter(Instance=instance).exists() :
-            
             app_obj = Application(AppName=appName, Instance=instance, Parent=parent_obj, CreatedBy=createdBy)
             app_obj.save()
             config_url = params.get('config_url', '')
@@ -199,7 +204,7 @@ def register_app():
                 conf.ConfigUrl = config_url
             if health_url:
                 isCreateConf = True
-                conf.HealthUrl = config_url
+                conf.HealthUrl = health_url
             if mime_type:
                 isCreateConf = True
                 conf.MimeType = mime_type
@@ -212,9 +217,11 @@ def register_app():
             if isCreateConf == True:
                 conf.save()
             transaction.commit()
-            return {'Code': 1}
         else:
-            return {'Code': -1, 'Message': 'instance has already been created'}
+            code = -1
+            message = 'instance has already been created'
+            
+        return {'Code': code, 'Message': message}
     except Exception, ex:
         transaction.rollback()
         logger.exception(ex)
@@ -227,32 +234,39 @@ def unregister_app():
         paramsPost = dict(request.json) 
         params = dict(request.query.items())
         params.update(paramsPost)
-        instance = params.get('instance', '').strip()
-        assert instance, 'instance param is invalid'
-        if Application.objects.filter(Instance=instance).exists() :
-            app_obj = Application.objects.filter(Instance=instance)[0]
-            if app_obj.Parent:
-                children = app_obj.children.all()
-                for item in children:
-                    if Configuration.objects.filter(Application=item).exists() :
-                        conf = Configuration.objects.filter(Application=item)
-                        conf.delete()
-                    item.delete()
-            
-            if Configuration.objects.filter(Application=app_obj).exists() :
-                conf = Configuration.objects.filter(Application=app_obj)
-                conf.delete()
-            app_obj.delete()
-            
-            
+        code = 1
+        message = 'OK'
+        apps = Application.objects.filter()
+        id = params.get('id', '').strip()
+        if id:
+            apps = apps.filter(pk=id)
+        else:
+            code = -1
+            message = 'id does not exist'
+        if code != -1:
+            for app_obj in apps:
+                if app_obj.Parent:
+                    children = app_obj.children.all()
+                    for item in children:
+                        if Configuration.objects.filter(Application=item).exists() :
+                            conf = Configuration.objects.filter(Application=item)
+                            conf.delete()
+                        item.delete()
+                
+                if Configuration.objects.filter(Application=app_obj).exists() :
+                    conf = Configuration.objects.filter(Application=app_obj)
+                    conf.delete()
+                app_obj.delete()
     except Exception, ex:
         logger.exception(ex)
-        return {'Code': -1, 'Message': ex.__str__()}
+        code = -1
+        message = ex.__str__()
+    return {'Code': code, 'Message': message}
     
 @app.route('/list', method='GET', name='list_instance')
 @app.route('/list/', method='GET', name='list_instance')
 def list_instance():
-    result = {'Code': 1, 'Message': ''}
+    result = {'Code': 1, 'Message': 'OK'}
     try:
         params = dict(request.query.items())
         instance = params.get('instance', '').strip()
@@ -300,11 +314,11 @@ def list_instance():
 @app.route('/app', method='GET', name='get_instance')
 @app.route('/app/', method='GET', name='get_instance')
 def get_instance():
-    result = {'Code': 1, 'Message': ''}
+    result = {'Code': 1, 'Message': 'OK'}
     try:
         params = dict(request.query.items())
-        id = params.get('id', '').strip()
         apps = Application.objects.filter()
+        id = params.get('id', '').strip()
         if id:
             apps = apps.filter(pk=id)
             
