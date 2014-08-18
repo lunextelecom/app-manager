@@ -12,4 +12,4 @@ DATABASES = {
         'HOST': '10.9.9.61',
         'SUPPORTS_TRANSACTIONS': True,
     }
-}
+} 
