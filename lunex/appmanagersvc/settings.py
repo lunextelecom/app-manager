@@ -34,4 +34,4 @@ INSTALLED_APPS = (
 LOGGING_OUTPUT = 'STDOUT'
 LOGGING_LEVEL = 'DEBUG'
 
-from prod_settings import *
+from pro_settings import *
