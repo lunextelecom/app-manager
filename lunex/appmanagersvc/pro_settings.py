@@ -8,7 +8,7 @@ DATABASES = {
         'NAME': 'appmanager',
         'ENGINE': 'mysql',
         'USER': 'lunexuser',
-        'PASSWORD': 'inn0v@tion',
+        'PASSWORD': 'n0bug4ver',
         'HOST': '10.9.9.61',  
         'SUPPORTS_TRANSACTIONS': True,
     } 
