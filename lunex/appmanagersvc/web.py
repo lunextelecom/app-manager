@@ -266,6 +266,7 @@ def list_instance():
             r = {}
             getFromChild = False
             r['Id'] = item.pk
+            r['AppName'] = item.AppName
             r['Instance'] = item.Instance
             r['CreatedBy'] = item.CreatedBy
             r['CreatedDate'] = item.CreatedDate.strftime('%m/%d/%Y %I:%M:%S %p')
