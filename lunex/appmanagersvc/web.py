@@ -40,6 +40,9 @@ def get_config():
     try:
         params = dict(request.query.items())
         instance = params.get('instance', '').strip()
+        isGetFromApp = params.get('get_from_app')
+        if not isGetFromApp:
+            isGetFromApp = False
         assert instance, 'Instance is invalid'
         
         appName = None;
@@ -57,10 +60,13 @@ def get_config():
         except Application.DoesNotExist:
             raise Exception('Instance [%s] does not exist' % instance)
         if not Configuration.objects.filter(Application=app_obj).exists():
-            if not Configuration.objects.filter(Application=parent_obj).exists():
-                return {'Code': -1, 'Message':'config does not exist'}
+            if isGetFromApp==True:
+                if not Configuration.objects.filter(Application=parent_obj).exists():
+                    return {'Code': -1, 'Message':'config does not exist'}
+                else:
+                    config_obj = Configuration.objects.get(Application=parent_obj)
             else:
-                config_obj = Configuration.objects.get(Application=parent_obj)
+                return {'Code': -1, 'Message':'config does not exist'}
         else:
             config_obj = Configuration.objects.get(Application=app_obj)
         
@@ -80,12 +86,7 @@ def get_config():
         logger.exception(ex)
         return {'Code': -1, 'Message': ex.__str__()}
 
-'''
-PUT /config?app=&instance=&config_url=&health_url=&content_type=&filename=&content=
-app/instance: required
-config_url, health_url, content_type, filename, content: optional
-
-'''    
+  
 @app.route('/config', method='PUT', name='save_config')
 @app.route('/config/', method='PUT', name='save_config')
 def save_config():
@@ -110,7 +111,7 @@ def save_config():
                 app_obj = Application.objects.filter(Instance=instance)[0]
         config_url = params.get('config_url', '')
         health_url = params.get('health_url', '')
-        content_type = params.get('content_type', '')
+        mime_type = params.get('mime_type', '')
         filename = params.get('filename', '')
         content = params.get('content', '')
         conf = Configuration(Application=app_obj)
@@ -121,8 +122,8 @@ def save_config():
             conf.ConfigUrl = config_url
         if health_url:
             conf.HealthUrl = config_url
-        if content_type:
-            conf.MimeType = content_type
+        if mime_type:
+            conf.MimeType = mime_type
         if content:
             conf.Content = content
         if filename:
@@ -223,6 +224,14 @@ def unregister_app():
         assert instance, 'instance param is invalid'
         if Application.objects.filter(Instance=instance).exists() :
             app_obj = Application.objects.filter(Instance=instance)[0]
+            if app_obj.Parent:
+                children = app_obj.children.all()
+                for item in children:
+                    if Configuration.objects.filter(Application=item).exists() :
+                        conf = Configuration.objects.filter(Application=item)
+                        conf.delete()
+                    item.delete()
+            
             if Configuration.objects.filter(Application=app_obj).exists() :
                 conf = Configuration.objects.filter(Application=app_obj)
                 conf.delete()
@@ -240,7 +249,7 @@ def list_instance():
     try:
         params = dict(request.query.items())
         instance = params.get('instance', '').strip()
-        apps = Application.objects.filter(Parent__isnull=False)
+        apps = Application.objects.filter()
         if instance:
             apps = apps.filter(Instance__icontains=instance)
             
@@ -254,6 +263,7 @@ def list_instance():
             r['CreatedBy'] = item.CreatedBy
             r['CreatedDate'] = item.CreatedDate.strftime('%m/%d/%Y %I:%M:%S %p')
             r['UpdatedBy'] = item.UpdatedBy if item.UpdatedBy else None
+            r['Type'] = 1 if item.Parent else 0
             r['UpdatedDate'] = item.UpdatedDate.strftime('%m/%d/%Y %I:%M:%S %p') if item.UpdatedDate else None
             r['Content'] = ''
             r['Filename'] = ''
