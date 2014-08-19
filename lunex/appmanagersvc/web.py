@@ -106,7 +106,7 @@ def save_config():
         filename = params.get('filename', '')
         content = params.get('content', '')
         updatedby = params.get('updatedby', '').strip()
-        assert updatedby, 'createdBy param can not null'
+        assert updatedby, 'updatedby param can not null'
         code = success_code
         message = 'OK'
         apps = Application.objects.filter()
@@ -133,7 +133,8 @@ def save_config():
                     conf.Filename = filename
                 conf.UpdatedBy = updatedby
                 conf.save()
-       
+                app_obj.UpdatedBy = updatedby
+                app_obj.save()
     except Exception, ex:
         logger.exception(ex)
         code = error_code
