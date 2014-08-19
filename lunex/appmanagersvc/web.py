@@ -5,16 +5,16 @@ Created on Aug 11, 2014
 '''
 import bottle
 import logging
-
+import djangoenv
 from bottle import request, static_file
-from django.db import transaction
 from gevent.pywsgi import WSGIServer
+#from lunex.utilities import httputils
+from django.db import transaction
 from lunex.appmanagersvc.models import Application, Configuration
 
 app = bottle.Bottle()
 
 logger = logging.getLogger('lunex.appmanagersvc.web')
-
 import os
 basedir = os.path.dirname(os.path.abspath(os.path.realpath(__file__)));
 #doc_path = os.path.normpath(os.path.join(basedir,'../../doc/build/html'))
