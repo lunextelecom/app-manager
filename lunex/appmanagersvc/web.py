@@ -5,14 +5,12 @@ Created on Aug 11, 2014
 '''
 import bottle
 import logging
-import djangoenv
-import settings
-import simplejson
-from bottle import route, run, error, get, post, request, response, static_file
-from gevent.pywsgi import WSGIServer
-#from lunex.utilities import httputils
-from lunex.appmanagersvc.models import Application, Configuration
+
+from bottle import request, static_file
 from django.db import transaction
+from gevent.pywsgi import WSGIServer
+from lunex.appmanagersvc.models import Application, Configuration
+
 app = bottle.Bottle()
 
 logger = logging.getLogger('lunex.appmanagersvc.web')
@@ -23,6 +21,8 @@ basedir = os.path.dirname(os.path.abspath(os.path.realpath(__file__)));
 static_path = os.path.normpath(os.path.join(basedir,'../../data/static'))
 bottle.TEMPLATE_PATH = [static_path,]
 
+success_code = 1
+error_code = -1
 map_ext_dict = {'application/json': 'json',
                 'application/xml': 'xml',
                 'application/yaml': 'yaml',
@@ -44,8 +44,8 @@ def get_config():
         if not isGetFromApp:
             isGetFromApp = False
         assert instance, 'Instance is invalid'
-        code = 0
-        message = ''
+        code = success_code
+        message = 'OK'
         appName = None
         try :
             appName = instance.split("@")[0]
@@ -61,15 +61,14 @@ def get_config():
         except Application.DoesNotExist:
             raise Exception('Instance [%s] does not exist' % instance)
         if not Configuration.objects.filter(Application=app_obj).exists():
-            if isGetFromApp==True:
+            if isGetFromApp:
                 if not Configuration.objects.filter(Application=parent_obj).exists():
-                    code = -1
+                    code = error_code
                     message = 'config does not exist'
-                   
                 else:
                     config_obj = Configuration.objects.get(Application=parent_obj)
             else:
-                code = -1
+                code = error_code
                 message = 'config does not exist'
                 
         else:
@@ -86,12 +85,12 @@ def get_config():
             afile.write(content)
             afile.close()
             return static_file(filename=file_name, root=static_path, download=file_name)
-        else:
-            return {'Code': code, 'Message':message}
     
     except Exception, ex:
         logger.exception(ex)
-        return {'Code': -1, 'Message': ex.__str__()}
+        code = error_code
+        message = ex.__str__()
+    return {'Code': code, 'Message':message}
 
   
 @app.route('/config', method='PUT', name='save_config')
@@ -106,14 +105,16 @@ def save_config():
         mime_type = params.get('mime_type', '')
         filename = params.get('filename', '')
         content = params.get('content', '')
-        code = 1
+        updatedby = params.get('updatedby', '').strip()
+        assert updatedby, 'createdBy param can not null'
+        code = success_code
         message = 'OK'
         apps = Application.objects.filter()
-        id = params.get('id', '').strip()
-        if id:
-            apps = apps.filter(pk=id)
+        appId = params.get('id', '').strip()
+        if appId:
+            apps = apps.filter(pk=appId)
         else:
-            code = -1
+            code = error_code
             message = 'id does not exist'
         if code != -1:
             for app_obj in apps:
@@ -130,11 +131,12 @@ def save_config():
                     conf.Content = content
                 if filename:
                     conf.Filename = filename
+                conf.UpdatedBy = updatedby
                 conf.save()
        
     except Exception, ex:
         logger.exception(ex)
-        code = -1
+        code = error_code
         message = ex.__str__()
     return {'Code': code, 'Message': message}
 
@@ -143,24 +145,23 @@ def save_config():
 def delete_config():
     try:
         params = dict(request.query.items())
-        code = 1
+        code = success_code
         message = 'OK'
         apps = Application.objects.filter()
-        id = params.get('id', '').strip()
-        if id:
-            apps = apps.filter(pk=id)
+        appId = params.get('id', '').strip()
+        if appId:
+            apps = apps.filter(pk=appId)
         else:
-            code = -1
+            code = error_code
             message = 'id does not exist'
         if code != -1:
             for app_obj in apps:
                 if Configuration.objects.filter(Application=app_obj).exists() :
                     conf = Configuration.objects.filter(Application=app_obj)
                     conf.delete()
-        return {'Code': 1}
     except Exception, ex:
         logger.exception(ex)
-        code = -1 
+        code = error_code 
         message = ex.__str__()
     return {'Code': code, 'Message': message}
 
@@ -172,7 +173,7 @@ def register_app():
         paramsPost = dict(request.json) 
         params = dict(request.query.items())
         params.update(paramsPost)
-        code = 1
+        code = success_code
         message = 'OK'
         instance = params.get('instance', '').strip()
         createdBy = params.get('createdby', '').strip()
@@ -218,14 +219,15 @@ def register_app():
                 conf.save()
             transaction.commit()
         else:
-            code = -1
+            code = error_code
             message = 'instance has already been created'
             
-        return {'Code': code, 'Message': message}
     except Exception, ex:
         transaction.rollback()
         logger.exception(ex)
-        return {'Code': -1, 'Message': ex.__str__()}
+        code = error_code
+        message = ex.__str__()
+    return {'Code': code, 'Message': message}
 
 @app.route('/app', method='DELETE', name='unregister_app')
 @app.route('/app/', method='DELETE', name='unregister_app')
@@ -234,14 +236,14 @@ def unregister_app():
         paramsPost = dict(request.json) 
         params = dict(request.query.items())
         params.update(paramsPost)
-        code = 1
+        code = success_code
         message = 'OK'
         apps = Application.objects.filter()
-        id = params.get('id', '').strip()
-        if id:
-            apps = apps.filter(pk=id)
+        appId = params.get('id', '').strip()
+        if appId:
+            apps = apps.filter(pk=appId)
         else:
-            code = -1
+            code = error_code
             message = 'id does not exist'
         if code != -1:
             for app_obj in apps:
@@ -259,7 +261,7 @@ def unregister_app():
                 app_obj.delete()
     except Exception, ex:
         logger.exception(ex)
-        code = -1
+        code = error_code
         message = ex.__str__()
     return {'Code': code, 'Message': message}
     
@@ -308,7 +310,7 @@ def list_instance():
         result['Result'] = app_list
     except Exception, ex:
         logger.exception(ex)
-        result = {'Code': -1, 'Message': ex.__str__()}
+        result = {'Code': error_code, 'Message': ex.__str__()}
     return result
 
 @app.route('/app', method='GET', name='get_instance')
@@ -318,9 +320,9 @@ def get_instance():
     try:
         params = dict(request.query.items())
         apps = Application.objects.filter()
-        id = params.get('id', '').strip()
-        if id:
-            apps = apps.filter(pk=id)
+        appId = params.get('id', '').strip()
+        if appId:
+            apps = apps.filter(pk=appId)
             
         app_list = []
         for item in apps:
