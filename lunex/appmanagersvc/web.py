@@ -89,7 +89,7 @@ def get_config():
             afile = open(file_name, 'w')
             afile.write(content)
             afile.close()
-            return static_file(filename=file_name, root=static_path, download=file_name)
+            return static_file(filename=config_obj.Filename, root=static_path, download=config_obj.Filename)
     
     except Exception, ex:
         logger.exception(ex)
