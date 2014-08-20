@@ -83,6 +83,7 @@ def get_config():
                 raise Exception('MimeType [%s] is invalid' % mime_type)
             ext = map_ext_dict[mime_type]
             name = static_path + '/' + config_obj.Filename
+            logger.debug(name)
 #             file_name = '%s.%s' % (name, ext)
             file_name = name
             afile = open(file_name, 'w')
