@@ -277,7 +277,7 @@ def list_instance():
         instance = params.get('instance', '').strip()
         apps = Application.objects.filter()
         if instance:
-            apps = apps.filter(Q(Instance__icontains=instance)|Q(App__icontains=instance))
+            apps = apps.filter(Q(Instance__icontains=instance)|Q(AppName__icontains=instance))
             
         app_list = []
         for item in apps:
