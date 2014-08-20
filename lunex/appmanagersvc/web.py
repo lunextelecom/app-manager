@@ -72,7 +72,7 @@ def get_config():
                 message = 'config does not exist'
             else:
                 config_obj = Configuration.objects.get(Application=parent_obj)
-        else:
+        if not config_obj:
             code = error_code
             message = 'config does not exist'
             
