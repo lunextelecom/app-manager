@@ -3,6 +3,7 @@ Created on Aug 11, 2014
 
 @author: Duc Le
 '''
+import djangoenv
 import logging
 import os
 
@@ -12,7 +13,7 @@ from django.db import transaction
 from django.db.models import Q
 from gevent.pywsgi import WSGIServer
 
-import djangoenv
+from django.conf import settings
 from lunex.appmanagersvc.models import Application, Configuration
 from lunex.appmanagersvc import healthService
 
