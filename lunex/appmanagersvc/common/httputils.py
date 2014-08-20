@@ -1,7 +1,7 @@
 import httplib, urllib
 import httplib2
-from lunex.common import log
-logger = log.setup_logger('httputils')
+import logging
+logger = logging.getLogger('lunex.appmanagersvc.common.httputils')
 
 def simple_http_request(server, method, path, params, headers, ssl=False):
     """\
