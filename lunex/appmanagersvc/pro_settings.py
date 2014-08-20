@@ -14,7 +14,8 @@ DATABASES = {
     } 
 }
 PREFIX_NAME = 'APP_MANAGER_'
-
+SMS_URL = 'http://192.168.93.160:8081/sms/'
+SMS_TO = '84988608168'
 '''
 Email setting
 '''

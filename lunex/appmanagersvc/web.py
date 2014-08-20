@@ -366,11 +366,15 @@ def get_instance():
     return result
 
 #====================================Phase2======================================#
-@app.route('/test', method='GET', name='get_instance')
-@app.route('/test/', method='GET', name='get_instance')
+@app.route('/testemail', method='GET', name='get_instance')
+@app.route('/testemail/', method='GET', name='get_instance')
 def test_email():
     return healthService.send_mail("aaportal")
 
+@app.route('/testsms', method='GET', name='get_instance')
+@app.route('/testsms/', method='GET', name='get_instance')
+def test_sms():
+    return healthService.send_sms("aaportal")
 #====================================Init======================================#
 def init_server():
     from django.conf import settings

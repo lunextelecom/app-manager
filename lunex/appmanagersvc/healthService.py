@@ -12,8 +12,8 @@ from django.template.loader import get_template
 import requests
 import statsd
 
+from lunex.appmanagersvc.common import emailutils, httputils
 from lunex.appmanagersvc.models import Application, Configuration
-from lunex.appmanagersvc.common import emailutils
 
 
 logger = logging.getLogger('lunex.appmanagersvc.health_service')
@@ -51,6 +51,19 @@ def send_mail(instanceName):
         
         server = emailutils.connect_to_server(settings.EMAIL_HOST, settings.EMAIL_PORT, settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
         emailutils.send_email_cc_html(from_email, email_tos, subject, contents, server, cc)
+    except Exception, ex:
+        logger.exception(ex)
+        result = {'Code': -1, 'Message': ex.__str__()}
+    return result
+def send_sms(instanceName):
+    result = {'Code': 1, 'Message': 'OK'}
+    try:
+        data = """<Data xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+            <Message>{0}</Message>
+            </Data>
+        """.format("Instance {0} may go down. Please verify asap".format(instanceName))
+        logger.debug(data)
+        httputils.send_request('POST', settings.SMS_URL + 'type/custom/lang/en/?srcnum={0}&dstnum={1}'.format('6782718212', settings.SMS_TO), data)
     except Exception, ex:
         logger.exception(ex)
         result = {'Code': -1, 'Message': ex.__str__()}
