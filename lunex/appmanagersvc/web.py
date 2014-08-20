@@ -3,20 +3,24 @@ Created on Aug 11, 2014
 
 @author: Duc Le
 '''
-import bottle
 import logging
-import djangoenv
-from bottle import request, static_file
-from gevent.pywsgi import WSGIServer
-from django.db.models import Q
-#from lunex.utilities import httputils
-from django.db import transaction
-from lunex.appmanagersvc.models import Application, Configuration
+import os
 
+from bottle import request, static_file
+import bottle
+from django.db import transaction
+from django.db.models import Q
+from gevent.pywsgi import WSGIServer
+
+import djangoenv
+from lunex.appmanagersvc.models import Application, Configuration
+from lunex.appmanagersvc import healthService
+
+
+#from lunex.utilities import httputils
 app = bottle.Bottle()
 
 logger = logging.getLogger('lunex.appmanagersvc.web')
-import os
 basedir = os.path.dirname(os.path.abspath(os.path.realpath(__file__)));
 #doc_path = os.path.normpath(os.path.join(basedir,'../../doc/build/html'))
 static_path = os.path.normpath(os.path.join(basedir,'../../data/static'))
@@ -83,7 +87,6 @@ def get_config():
                 raise Exception('MimeType [%s] is invalid' % mime_type)
             ext = map_ext_dict[mime_type]
             name = static_path + '/' + config_obj.Filename
-            logger.debug(name)
 #             file_name = '%s.%s' % (name, ext)
             file_name = name
             afile = open(file_name, 'w')
@@ -360,6 +363,13 @@ def get_instance():
         logger.exception(ex)
         result = {'Code': -1, 'Message': ex.__str__()}
     return result
+
+#====================================Phase2======================================#
+@app.route('/test', method='GET', name='get_instance')
+@app.route('/test/', method='GET', name='get_instance')
+def test_email():
+    return healthService.send_mail("aaportal")
+
 #====================================Init======================================#
 def init_server():
     from django.conf import settings
