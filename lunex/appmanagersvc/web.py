@@ -8,6 +8,7 @@ import logging
 import djangoenv
 from bottle import request, static_file
 from gevent.pywsgi import WSGIServer
+from django.db.models import Q
 #from lunex.utilities import httputils
 from django.db import transaction
 from lunex.appmanagersvc.models import Application, Configuration
@@ -276,7 +277,7 @@ def list_instance():
         instance = params.get('instance', '').strip()
         apps = Application.objects.filter()
         if instance:
-            apps = apps.filter(Instance__icontains=instance)
+            apps = apps.filter(Q(Instance__icontains=instance)|Q(App__icontains=instance))
             
         app_list = []
         for item in apps:
