@@ -15,7 +15,6 @@ from gevent.pywsgi import WSGIServer
 
 from django.conf import settings
 from lunex.appmanagersvc.models import Application, Configuration
-from lunex.appmanagersvc import healthService
 
 
 #from lunex.utilities import httputils
@@ -208,7 +207,7 @@ def register_app():
             filename = params.get('filename', '')
             content = params.get('content', '')
             isCreateConf = False
-            conf = Configuration(Application=app_obj)
+            conf = Configuration(Application=app_obj,CreatedBy=createdBy)
             if config_url:
                 isCreateConf = True
                 conf.ConfigUrl = config_url
@@ -365,16 +364,6 @@ def get_instance():
         result = {'Code': -1, 'Message': ex.__str__()}
     return result
 
-#====================================Phase2======================================#
-@app.route('/testemail', method='GET', name='get_instance')
-@app.route('/testemail/', method='GET', name='get_instance')
-def test_email():
-    return healthService.send_mail("aaportal")
-
-@app.route('/testsms', method='GET', name='get_instance')
-@app.route('/testsms/', method='GET', name='get_instance')
-def test_sms():
-    return healthService.send_sms("aaportal")
 #====================================Init======================================#
 def init_server():
     from django.conf import settings

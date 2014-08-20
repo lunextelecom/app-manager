@@ -13,9 +13,8 @@ DATABASES = {
         'SUPPORTS_TRANSACTIONS': True,
     } 
 }
-PREFIX_NAME = 'APP_MANAGER_'
+SLEEPING_TIME = 60
 SMS_URL = 'http://192.168.93.160:8081/sms/'
-SMS_TO = '84988608168'
 '''
 Email setting
 '''
@@ -23,7 +22,11 @@ EMAIL_HOST = "smtp2.lunextelecom.com"
 EMAIL_PORT = 25
 EMAIL_HOST_USER = "tcard"
 EMAIL_HOST_PASSWORD = "tech88trex"
+FROM_EMAIL = 'devteam@lunextelecom.com'
+TO_EMAILS = 'duynguyen@lunextelecom.com'
+TO_PHONES = '84988608168'
 
+'''Template dir'''
 import os;
 TEMPLATE_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'templates/')
 TEMPLATE_DIRS = (
@@ -32,3 +35,7 @@ TEMPLATE_DIRS = (
     # Don't forget to use absolute paths, not relative paths.
     TEMPLATE_ROOT
 )
+'''Graphite'''
+GRAPHITE_PREFIX_NAME = 'APP_MANAGER_'
+GRAPHITE_SERVER = "192.169.93.69"
+GRAPHITE_PORT = 8001
