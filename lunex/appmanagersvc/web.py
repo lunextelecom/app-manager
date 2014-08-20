@@ -26,7 +26,8 @@ error_code = -1
 map_ext_dict = {'application/json': 'json',
                 'application/xml': 'xml',
                 'application/yaml': 'yaml',
-                'application/text': 'txt'
+                'application/text': 'txt',
+                'application/python': 'py'
                 }
 
 @app.route('/', name='default')
@@ -60,19 +61,20 @@ def get_config():
             app_obj = Application.objects.get(Instance=instance)
         except Application.DoesNotExist:
             raise Exception('Instance [%s] does not exist' % instance)
-        if not Configuration.objects.filter(Application=app_obj).exists():
-            if isGetFromApp:
-                if not Configuration.objects.filter(Application=parent_obj).exists():
-                    code = error_code
-                    message = 'config does not exist'
-                else:
-                    config_obj = Configuration.objects.get(Application=parent_obj)
-            else:
+        
+        if Configuration.objects.filter(Application=app_obj).exists():
+            config_obj = Configuration.objects.get(Application=app_obj)
+        
+        if isGetFromApp and ((config_obj and config_obj.Content) or not config_obj):
+            if not Configuration.objects.filter(Application=parent_obj).exists():
                 code = error_code
                 message = 'config does not exist'
-                
+            else:
+                config_obj = Configuration.objects.get(Application=parent_obj)
         else:
-            config_obj = Configuration.objects.get(Application=app_obj)
+            code = error_code
+            message = 'config does not exist'
+            
         if code != -1:
             content = config_obj.Content
             mime_type = config_obj.MimeType
@@ -127,8 +129,7 @@ def save_config():
                     conf.HealthUrl = health_url
                 if mime_type:
                     conf.MimeType = mime_type
-                if content:
-                    conf.Content = content
+                conf.Content = content
                 if filename:
                     conf.Filename = filename
                 conf.UpdatedBy = updatedby
