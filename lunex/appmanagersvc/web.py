@@ -82,8 +82,9 @@ def get_config():
             if mime_type not in map_ext_dict:
                 raise Exception('MimeType [%s] is invalid' % mime_type)
             ext = map_ext_dict[mime_type]
-            name = static_path + '/' + instance.replace(':', '_')#datetime.now().strftime('%m_%d_%Y_%H_%m_%S')
-            file_name = '%s.%s' % (name, ext)
+            name = static_path + '/' + config_obj.Filename
+#             file_name = '%s.%s' % (name, ext)
+            file_name = name
             afile = open(file_name, 'w')
             afile.write(content)
             afile.close()
