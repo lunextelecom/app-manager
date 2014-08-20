@@ -126,7 +126,7 @@ def save_config():
             message = 'id does not exist'
         if code != -1:
             for app_obj in apps:
-                conf = Configuration(Application=app_obj)
+                conf = Configuration(Application=app_obj,CreatedBy=updatedby)
                 if Configuration.objects.filter(Application=app_obj).exists() :
                     conf = Configuration.objects.filter(Application=app_obj)[0]
                 if config_url:
