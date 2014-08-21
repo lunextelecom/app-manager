@@ -10,21 +10,24 @@ import sys
 import time
 import requests
 import statsd
-
+import simplejson as json
 from lunex.appmanagersvc import djangoenv
-from lunex.common.log import setup_logger
-from lunex.appmanagersvc.healthcheck.daemon import Daemon
-
 from django.conf import settings
 from django.template import Context
 from django.template.loader import get_template
+from lunex.common.log import setup_logger
+
 from lunex.appmanagersvc.common import emailutils, httputils
+from lunex.appmanagersvc.healthcheck.daemon import Daemon
 from lunex.appmanagersvc.models import Application, Configuration
+
 
 settings.LOGGING_OUTPUT = "/tmp/HealthCheck_daemon.log"
 
 logger = setup_logger('HealthCheckDaemon')
-statsd.Connection(host=str(settings.GRAPHITE_SERVER), port=settings.GRAPHITE_PORT)
+statsd_connection = statsd.Connection(host=str(settings.GRAPHITE_SERVER))
+statsd_client = statsd.Client(settings.GRAPHITE_PREFIX_NAME, statsd_connection)
+gauge = statsd_client.get_client(class_=statsd.Gauge)
 
 def main(args):
     
@@ -68,8 +71,8 @@ def _run_service():
 def send_mail(instanceName):
     result = {'Code': 1, 'Message': 'OK'}
     try:
-        template = get_template('emails/instance_down.txt')
-        from_email = settings.FROM_EMAILS
+        template = get_template('emails/instance_down.html')
+        from_email = settings.FROM_EMAIL
         email_tos = settings.TO_EMAILS.split(";")
         cc = []
         subject = 'Instance may go down'
@@ -110,12 +113,24 @@ def process_health_check():
                     conf = Configuration.objects.filter(Application=item)[0]
                 if conf and conf.HealthUrl:
                     r = requests.get(conf.HealthUrl,timeout=5)
+                    isOk = False
                     if r and r.status_code == 200:
-                        gauge = statsd.Gauge(settings.GRAPHITE_PREFIX_NAME + item.Instance)
-                        gauge.send('status', 1)
+                        isOk = True
+                        #check dropwizard
+                        try:
+                            obj = json.loads(r.content)
+                            for item in obj.items():
+                                child = item[1]
+                                if not child.get("healthy"):
+                                    isOk = False
+                                    break
+                            
+                        except Exception, ex:
+                            pass
+                    if isOk:
+                        gauge.send(item.Instance, 1)
                     else:
-                        gauge = statsd.Gauge(settings.GRAPHITE_PREFIX_NAME + item.Instance)
-                        gauge.send('status', 0)
+                        gauge.send(item.Instance, 0)
                         #app goes down, send sms & email
                         send_mail(item.Instance)
                         send_sms(item.Instance)
@@ -123,12 +138,9 @@ def process_health_check():
                 pass
     except Exception, ex:
         logger.exception(ex)
-        
+
 if __name__ == "__main__":    
     try:
-#         main(sys.argv)
-        gauge = statsd.Gauge(settings.GRAPHITE_PREFIX_NAME + "aaportal")
-        gauge.send('status', 1)
-        print 1;
+        main(sys.argv)
     except Exception as inst:
-        logger.exception(inst);
+        logger.exception(inst)

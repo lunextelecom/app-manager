@@ -3,21 +3,23 @@ Created on Aug 11, 2014
 
 @author: Duc Le
 '''
-import djangoenv
+import httplib, urllib
 import logging
 import os
 
 from bottle import request, static_file
 import bottle
+import djangoenv
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 from gevent.pywsgi import WSGIServer
 
-from django.conf import settings
+from lunex.appmanagersvc.common import httputils
 from lunex.appmanagersvc.models import Application, Configuration
+import simplejson as json
 
 
-#from lunex.utilities import httputils
 app = bottle.Bottle()
 
 logger = logging.getLogger('lunex.appmanagersvc.web')
@@ -127,8 +129,10 @@ def save_config():
         if code != -1:
             for app_obj in apps:
                 conf = Configuration(Application=app_obj,CreatedBy=updatedby)
+                oldContent = None
                 if Configuration.objects.filter(Application=app_obj).exists() :
                     conf = Configuration.objects.filter(Application=app_obj)[0]
+                    oldContent = conf.Content
                 if config_url:
                     conf.ConfigUrl = config_url
                 if health_url:
@@ -142,12 +146,32 @@ def save_config():
                 conf.save()
                 app_obj.UpdatedBy = updatedby
                 app_obj.save()
+                #put config change
+                if config_url:
+                    if content:
+                        update_config_fly(app_obj.Instance, config_url, filename, content)
+                    elif oldContent and app_obj.Parent:
+                        #get config from parent
+                        if Configuration.objects.filter(Application=app_obj.Parent).exists():
+                            parent_conf = Configuration.objects.get(Application=app_obj.Parent)
+                            if parent_conf.content:
+                                update_config_fly(app_obj.Instance, config_url, parent_conf.filename, parent_conf.content)
+                            
     except Exception, ex:
         logger.exception(ex)
         code = error_code
         message = ex.__str__()
     return {'Code': code, 'Message': message}
 
+def update_config_fly(instanceName, url, filename, content):
+    try:
+        params = json.dumps({'filename': filename, 'content': content})
+        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        response = httputils.send_request("POST", url, params, headers)
+        logger.info("update instance {0} with config {1}, status : {2}, reason : {3}".format(instanceName, content, response.status, response.reason))
+    except Exception, ex:
+        print ex
+        
 @app.route('/config', method='DELETE', name='delete_config')
 @app.route('/config/', method='DELETE', name='delete_config')
 def delete_config():
