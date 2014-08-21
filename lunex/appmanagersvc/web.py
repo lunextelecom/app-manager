@@ -229,6 +229,7 @@ def register_app():
         else:
             code = error_code
             message = 'instance has already been created'
+            transaction.rollback()
             
     except Exception, ex:
         transaction.rollback()
