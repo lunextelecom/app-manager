@@ -334,7 +334,6 @@ def get_instance():
             
         app_list = []
         for item in apps:
-            item.Parent
             r = {}
             r['Id'] = item.pk
             r['AppName'] = item.AppName
