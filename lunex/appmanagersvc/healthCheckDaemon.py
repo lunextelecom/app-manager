@@ -5,17 +5,17 @@ Created on Aug 18, 2014
 
 @author: DuyNguyen
 '''
+import djangoenv
 import gc
-import sys
-import time
+import logging
 import requests
+import sys
 import statsd
 import simplejson as json
-import djangoenv
+import time
 from django.conf import settings
 from django.template import Context
 from django.template.loader import get_template
-from lunex.common.log import setup_logger
 
 from lunex.appmanagersvc.common import emailutils, httputils
 from lunex.appmanagersvc.utils.daemon import Daemon
@@ -24,7 +24,7 @@ from lunex.appmanagersvc.models import Application, Configuration
 
 settings.LOGGING_OUTPUT = "/tmp/HealthCheck_daemon.log"
 
-logger = setup_logger('HealthCheckDaemon')
+logger = logging.getLogger('lunex.appmanagersvc.healthCheckDaemon')
 statsd_connection = statsd.Connection(host=str(settings.GRAPHITE_SERVER))
 statsd_client = statsd.Client(settings.GRAPHITE_PREFIX_NAME, statsd_connection)
 gauge = statsd_client.get_client(class_=statsd.Gauge)
