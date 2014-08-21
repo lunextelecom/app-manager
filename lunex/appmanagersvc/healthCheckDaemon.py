@@ -72,7 +72,7 @@ def send_mail(instanceName):
     result = {'Code': 1, 'Message': 'OK'}
     try:
         template = get_template('emails/instance_down.html')
-        from_email = [settings.FROM_EMAIL]
+        from_email = settings.FROM_EMAIL.split(";")
         to_emails = settings.TO_EMAILS.split(";")
         cc = []
         subject = 'Instance may go down'
