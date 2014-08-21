@@ -289,7 +289,6 @@ def list_instance():
         for item in apps:
             item.Parent
             r = {}
-            getFromChild = False
             r['Id'] = item.pk
             r['AppName'] = item.AppName
             r['Instance'] = item.Instance
@@ -305,10 +304,6 @@ def list_instance():
             conf = None
             if Configuration.objects.filter(Application=item).exists() :
                 conf = Configuration.objects.filter(Application=item)[0]
-                getFromChild = True
-            if getFromChild==False:
-                if Configuration.objects.filter(Application=item.Parent).exists() :
-                    conf = Configuration.objects.filter(Application=item.Parent)[0]
             if conf:
                 r['Content'] = conf.Content if conf.Content else '' 
                 r['Filename'] = conf.Filename if conf.Filename else '' 
