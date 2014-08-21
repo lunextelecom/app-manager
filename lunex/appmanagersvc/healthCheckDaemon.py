@@ -72,15 +72,15 @@ def send_mail(instanceName):
     result = {'Code': 1, 'Message': 'OK'}
     try:
         template = get_template('emails/instance_down.html')
-        from_email = settings.FROM_EMAIL
-        email_tos = settings.TO_EMAILS.split(";")
+        from_email = [settings.FROM_EMAIL]
+        to_emails = settings.TO_EMAILS.split(";")
         cc = []
         subject = 'Instance may go down'
         contents = template.render(Context({'instanceName': instanceName}))
         
         server = emailutils.connect_to_server(settings.EMAIL_HOST, settings.EMAIL_PORT, settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
-        emailutils.send_email_cc_html(from_email, email_tos, subject, contents, server, cc)
-        logger.debug('Instance {0} may go down, send email to '.format(instanceName, str(email_tos)))
+        emailutils.send_email_cc_html(from_email, to_emails, subject, contents, server, cc)
+        logger.debug('Instance {0} may go down, send email to '.format(instanceName, str(to_emails)))
     except Exception, ex:
         logger.exception(ex)
         result = {'Code': -1, 'Message': ex.__str__()}
