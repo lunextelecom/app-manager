@@ -7,7 +7,10 @@ Created on Aug 11, 2014
 import sys, os;
 #Setting up environment
 basedir = os.path.dirname(os.path.abspath(os.path.realpath(__file__)));
-real_path = os.path.normpath(os.path.join(basedir,'../..'))
+real_path = os.path.normpath(os.path.join(basedir,'../../'))
+
+sys.path.append(os.path.abspath(real_path))
+
 os.environ['DJANGO_SETTINGS_MODULE'] = 'lunex.appmanagersvc.settings'
 
 import logging.config
