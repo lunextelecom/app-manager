@@ -9,7 +9,7 @@ import sys, os;
 basedir = os.path.dirname(os.path.abspath(os.path.realpath(__file__)));
 real_path = os.path.normpath(os.path.join(basedir,'../../'))
 
-sys.path.append(os.path.abspath(real_path))
+#sys.path.append(os.path.abspath(real_path))
 
 os.environ['DJANGO_SETTINGS_MODULE'] = 'lunex.appmanagersvc.settings'
 
