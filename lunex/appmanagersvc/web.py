@@ -170,7 +170,7 @@ def update_config_fly(instanceName, url, filename, content):
         response = httputils.send_request("POST", url, params, headers)
         logger.info("update instance {0} with config {1}, status : {2}, reason : {3}".format(instanceName, content, response.status, response.reason))
     except Exception, ex:
-        print ex
+        logger.exception(ex)
         
 @app.route('/config', method='DELETE', name='delete_config')
 @app.route('/config/', method='DELETE', name='delete_config')

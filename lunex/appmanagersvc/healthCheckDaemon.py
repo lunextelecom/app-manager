@@ -11,14 +11,14 @@ import time
 import requests
 import statsd
 import simplejson as json
-from lunex.appmanagersvc import djangoenv
+import djangoenv
 from django.conf import settings
 from django.template import Context
 from django.template.loader import get_template
 from lunex.common.log import setup_logger
 
 from lunex.appmanagersvc.common import emailutils, httputils
-from lunex.appmanagersvc.healthcheck.daemon import Daemon
+from lunex.appmanagersvc.utils.daemon import Daemon
 from lunex.appmanagersvc.models import Application, Configuration
 
 
