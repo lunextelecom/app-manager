@@ -22,7 +22,7 @@ EMAIL_HOST = "smtp2.lunextelecom.com"
 EMAIL_PORT = 25
 EMAIL_HOST_USER = "tcard"
 EMAIL_HOST_PASSWORD = "tech88trex"
-FROM_EMAIL = 'trinhtran@lunextelecom.com'
+FROM_EMAIL = 'devteam@lunextelecom.com'
 TO_EMAILS = 'duynguyen@lunextelecom.com'
 TO_PHONES = '84988608168'
 
