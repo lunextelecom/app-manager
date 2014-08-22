@@ -27,7 +27,7 @@ logger = logging.getLogger('lunex.appmanagersvc.web')
 
 import os
 basedir = os.path.dirname(os.path.abspath(__file__))
-logging.config.fileConfig(basedir + "logging.conf", defaults=None, disable_existing_loggers=True)
+logging.config.fileConfig(basedir + "/logging.conf", defaults=None, disable_existing_loggers=True)
 
 basedir = os.path.dirname(os.path.abspath(os.path.realpath(__file__)));
 #doc_path = os.path.normpath(os.path.join(basedir,'../../doc/build/html'))
@@ -113,9 +113,12 @@ def get_config():
 @app.route('/config/', method='PUT', name='save_config')
 def save_config():
     try:
-        paramsPost = dict(request.json) 
         params = dict(request.query.items())
-        params.update(paramsPost)
+        try:
+            paramsPost = dict(request.json) 
+            params.update(paramsPost)
+        except:
+            pass
         config_url = params.get('config_url', '')
         health_url = params.get('health_url', '')
         mime_type = params.get('mime_type', '')
@@ -209,9 +212,12 @@ def delete_config():
 @transaction.commit_manually
 def register_app():
     try:
-        paramsPost = dict(request.json) 
         params = dict(request.query.items())
-        params.update(paramsPost)
+        try:
+            paramsPost = dict(request.json) 
+            params.update(paramsPost)
+        except:
+            pass
         code = success_code
         message = 'OK'
         instance = params.get('instance', '').strip()
@@ -273,9 +279,12 @@ def register_app():
 @app.route('/app/', method='DELETE', name='unregister_app')
 def unregister_app():
     try:
-        paramsPost = dict(request.json) 
         params = dict(request.query.items())
-        params.update(paramsPost)
+        try:
+            paramsPost = dict(request.json) 
+            params.update(paramsPost)
+        except:
+            pass
         code = success_code
         message = 'OK'
         apps = Application.objects.filter()
@@ -408,5 +417,5 @@ if __name__ == "__main__":
         ip_addr = args.i
     if args.p:
         port = int(args.p)
-    logging.info('Listening on %s:%s', ip_addr, port)
+    logger.info('Listening on %s:%s', ip_addr, port)
     WSGIServer((ip_addr, port), app).serve_forever()

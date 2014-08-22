@@ -28,7 +28,7 @@ logger = logging.getLogger('lunex.appmanagersvc.health_check_daemon')
 
 import os
 basedir = os.path.dirname(os.path.abspath(__file__))
-logging.config.fileConfig(basedir + "logging.conf", defaults=None, disable_existing_loggers=True)
+logging.config.fileConfig(basedir + "/logging.conf", defaults=None, disable_existing_loggers=True)
 
 statsd_connection = statsd.Connection(host=str(settings.GRAPHITE_SERVER))
 statsd_client = statsd.Client(settings.GRAPHITE_PREFIX_NAME, statsd_connection)
@@ -146,7 +146,6 @@ def process_health_check():
 
 if __name__ == "__main__":    
     try:
-        logger.info("abc")
-#         main(sys.argv)
+        main(sys.argv)
     except Exception as inst:
         logger.exception(inst)
