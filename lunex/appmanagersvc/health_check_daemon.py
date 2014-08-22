@@ -117,7 +117,11 @@ def process_health_check():
                 if Configuration.objects.filter(Application=item).exists() :
                     conf = Configuration.objects.filter(Application=item)[0]
                 if conf and conf.HealthUrl:
-                    r = requests.get(conf.HealthUrl,timeout=5)
+                    r = None
+                    try:
+                        r = requests.get(conf.HealthUrl,timeout=5)
+                    except:
+                        pass
                     isOk = False
                     if r and r.status_code == 200:
                         isOk = True
@@ -146,6 +150,7 @@ def process_health_check():
 
 if __name__ == "__main__":    
     try:
-        main(sys.argv)
+        process_health_check()
+        #main(sys.argv)
     except Exception as inst:
         logger.exception(inst)
