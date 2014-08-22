@@ -147,7 +147,10 @@ def process_health_check():
                         #app goes down, send sms & email
                         send_mail(item.Instance)
                         send_sms(item.Instance)
-            except:
+                else:
+                    logger.info("conf/conf.HealthUrl of %s is null" % item.Instance)
+            except Exception, ex:
+                logger.info("process_health_check %s error, message :" % (item.Instance,ex.__str__()))
                 pass
     except Exception, ex:
         logger.exception(ex)
