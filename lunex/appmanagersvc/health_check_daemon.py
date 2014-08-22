@@ -110,8 +110,10 @@ def send_sms(instanceName):
 
 def process_health_check():
     try:
+        logger.info("begin process_health_check")
         apps = Application.objects.filter(Parent__isnull=False)
         for item in apps:
+            logger.info("process_health_check : " + item.Instance)
             try:
                 conf = None
                 if Configuration.objects.filter(Application=item).exists() :
@@ -137,8 +139,10 @@ def process_health_check():
                         except Exception, ex:
                             pass
                     if isOk:
+                        logger.info("process_health_check %s is OK" % item.Instance)
                         gauge.send(item.Instance, 1)
                     else:
+                        logger.info("process_health_check %s is not OK" % item.Instance)
                         gauge.send(item.Instance, 0)
                         #app goes down, send sms & email
                         send_mail(item.Instance)
@@ -147,6 +151,7 @@ def process_health_check():
                 pass
     except Exception, ex:
         logger.exception(ex)
+    logger.info("end process_health_check")
 
 if __name__ == "__main__":    
     try:
