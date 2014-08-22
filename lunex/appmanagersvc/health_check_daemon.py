@@ -113,7 +113,7 @@ def process_health_check():
         logger.info("begin process_health_check")
         apps = Application.objects.filter(Parent__isnull=False)
         for item in apps:
-            logger.info("process_health_check : " + item.Instance)
+            logger.info("process_health_check %s " % item.Instance)
             try:
                 conf = None
                 if Configuration.objects.filter(Application=item).exists() :
