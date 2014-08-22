@@ -130,9 +130,9 @@ def process_health_check():
                         #check dropwizard
                         try:
                             obj = json.loads(r.content)
-                            for item in obj.items():
-                                child = item[1]
-                                if not child.get("healthy"):
+                            for child in obj.items():
+                                attr = child[1]
+                                if not attr.get("healthy"):
                                     isOk = False
                                     break
                             
@@ -150,7 +150,7 @@ def process_health_check():
                 else:
                     logger.info("conf/conf.HealthUrl of %s is null" % item.Instance)
             except Exception, ex:
-                logger.info("process_health_check %s error, message :" % (item.Instance,ex.__str__()))
+                logger.info("process_health_check %s error, message : %s" % (item.Instance,ex.__str__()))
                 pass
     except Exception, ex:
         logger.exception(ex)
