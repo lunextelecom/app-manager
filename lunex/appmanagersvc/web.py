@@ -23,11 +23,11 @@ import simplejson as json
 
 app = bottle.Bottle()
 
-logger = logging.getLogger('lunex.appmanagersvc.web')
 
 import os
 basedir = os.path.dirname(os.path.abspath(__file__))
 logging.config.fileConfig(basedir + "/logging.conf", defaults=None, disable_existing_loggers=True)
+logger = logging.getLogger('lunex.appmanagersvc.web')
 
 basedir = os.path.dirname(os.path.abspath(os.path.realpath(__file__)));
 #doc_path = os.path.normpath(os.path.join(basedir,'../../doc/build/html'))
