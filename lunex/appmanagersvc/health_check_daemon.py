@@ -24,7 +24,7 @@ from lunex.appmanagersvc.models import Application, Configuration
 
 settings.LOGGING_OUTPUT = "/tmp/HealthCheck_daemon.log"
 
-logger = logging.getLogger('lunex.appmanagersvc.healthCheckDaemon')
+logger = logging.getLogger('lunex.appmanagersvc.health_check_daemon')
 statsd_connection = statsd.Connection(host=str(settings.GRAPHITE_SERVER))
 statsd_client = statsd.Client(settings.GRAPHITE_PREFIX_NAME, statsd_connection)
 gauge = statsd_client.get_client(class_=statsd.Gauge)
@@ -32,7 +32,7 @@ gauge = statsd_client.get_client(class_=statsd.Gauge)
 def main(args):
     
     if len(sys.argv) == 2:
-        daemon = HealthCheckDaemon('/var/run/health-check-processor-daemon.pid')        
+        daemon = health_check_daemon('/var/run/health-check-processor-daemon.pid')        
         if 'start' == sys.argv[1]:
             daemon.start()
         elif 'stop' == sys.argv[1]:
@@ -48,7 +48,7 @@ def main(args):
         _run_service();
     return 0;
 
-class HealthCheckDaemon(Daemon):
+class health_check_daemon(Daemon):
     def run(self):
         try:
             _run_service()
@@ -57,7 +57,7 @@ class HealthCheckDaemon(Daemon):
             raise;
         
 def _run_service():
-    logger.info('HealthCheckDaemon started');   
+    logger.info('health_check_daemon started');   
     while True:
         try:
             process_health_check()
@@ -66,14 +66,14 @@ def _run_service():
             logger.exception(inst)
         logger.info('Idle in %s seconds' % settings.SLEEPING_TIME)
         time.sleep(settings.SLEEPING_TIME);
-    logger.info('HealthCheckDaemon stopped');
+    logger.info('health_check_daemon stopped');
 
 def send_mail(instanceName):
     result = {'Code': 1, 'Message': 'OK'}
     try:
         template = get_template('emails/instance_down.html')
-        from_email = settings.FROM_EMAIL.split(";")
-        to_emails = settings.TO_EMAILS.split(";")
+        from_email = settings.FROM_EMAIL
+        to_emails = settings.TO_EMAILS
         cc = []
         subject = 'Instance may go down'
         contents = template.render(Context({'instanceName': instanceName}))
@@ -94,9 +94,9 @@ def send_sms(instanceName):
             <Message>{0}</Message>
             </Data>
         """.format(msg)
-        sms_tos = settings.TO_PHONES.split(";")
+        sms_tos = settings.TO_PHONES
         for item in sms_tos:
-            httputils.send_request('POST', settings.SMS_URL + 'type/custom/lang/en/?srcnum={0}&dstnum={1}'.format('6782718212', item), data)
+            httputils.send_request('POST', settings.SMS_URL + 'type/custom/lang/en/?srcnum={0}&dstnum={1}'.format(settings.SMS_FROM_PHONE, item), data)
             logger.debug('Send sms to ' + item + ', Content :' + msg)
     except Exception, ex:
         logger.exception(ex)

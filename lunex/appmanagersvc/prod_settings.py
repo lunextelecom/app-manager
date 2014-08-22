@@ -15,6 +15,7 @@ DATABASES = {
 }
 SLEEPING_TIME = 60
 SMS_URL = 'http://192.168.93.160:8081/sms/'
+SMS_FROM_PHONE = '6782718212'
 '''
 Email setting
 '''
@@ -22,9 +23,9 @@ EMAIL_HOST = "smtp2.lunextelecom.com"
 EMAIL_PORT = 25
 EMAIL_HOST_USER = "tcard"
 EMAIL_HOST_PASSWORD = "tech88trex"
-FROM_EMAIL = 'devteam@lunextelecom.com'
-TO_EMAILS = 'duynguyen@lunextelecom.com'
-TO_PHONES = '84988608168'
+FROM_EMAIL = ['devteam@lunextelecom.com']
+TO_EMAILS = ['duynguyen@lunextelecom.com']
+TO_PHONES = ['84988608168']
 
 '''Template dir'''
 import os;
