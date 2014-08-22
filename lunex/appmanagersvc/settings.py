@@ -34,4 +34,4 @@ INSTALLED_APPS = (
 LOGGING_OUTPUT = 'STDOUT'
 LOGGING_LEVEL = 'DEBUG'
 
-from pro_settings import *
+from lunex.appmanagersvc.prod_settings import *

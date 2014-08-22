@@ -20,6 +20,7 @@ from lunex.appmanagersvc.models import Application, Configuration
 import simplejson as json
 
 
+
 app = bottle.Bottle()
 
 logger = logging.getLogger('lunex.appmanagersvc.web')
@@ -149,7 +150,8 @@ def save_config():
                 #put config change
                 if config_url:
                     if content:
-                        update_config_fly(app_obj.Instance, config_url, filename, content)
+                        if oldContent and content != oldContent:
+                            update_config_fly(app_obj.Instance, config_url, filename, content)
                     elif oldContent and app_obj.Parent:
                         #get config from parent
                         if Configuration.objects.filter(Application=app_obj.Parent).exists():
