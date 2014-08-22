@@ -158,7 +158,6 @@ def process_health_check():
 
 if __name__ == "__main__":    
     try:
-        process_health_check()
-        #main(sys.argv)
+        main(sys.argv)
     except Exception as inst:
         logger.exception(inst)
