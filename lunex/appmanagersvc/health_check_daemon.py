@@ -14,6 +14,7 @@ import statsd
 import simplejson as json
 import time
 from django.conf import settings
+from django.db import transaction
 from django.template import Context
 from django.template.loader import get_template
 
@@ -99,7 +100,7 @@ def send_sms(instanceName):
             <Message>{0}</Message>
             </Data>
         """.format(msg)
-        sms_tos = settings.TO_PHONES
+        sms_tos = settings.SMS_TO_PHONES
         for item in sms_tos:
             httputils.send_request('POST', settings.SMS_URL + 'type/custom/lang/en/?srcnum={0}&dstnum={1}'.format(settings.SMS_FROM_PHONE, item), data)
             logger.debug('Send sms to ' + item + ', Content :' + msg)
@@ -108,6 +109,7 @@ def send_sms(instanceName):
         result = {'Code': -1, 'Message': ex.__str__()}
     return result
 
+@transaction.commit_manually
 def process_health_check():
     try:
         logger.info("begin process_health_check")
@@ -155,6 +157,7 @@ def process_health_check():
     except Exception, ex:
         logger.exception(ex)
     logger.info("end process_health_check")
+    transaction.commit()
 
 if __name__ == "__main__":    
     try:
