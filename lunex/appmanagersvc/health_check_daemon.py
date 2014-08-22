@@ -25,6 +25,9 @@ from lunex.appmanagersvc.models import Application, Configuration
 settings.LOGGING_OUTPUT = "/tmp/HealthCheck_daemon.log"
 
 logger = logging.getLogger('lunex.appmanagersvc.health_check_daemon')
+
+logging.config.fileConfig("logging.conf", defaults=None, disable_existing_loggers=True)
+
 statsd_connection = statsd.Connection(host=str(settings.GRAPHITE_SERVER))
 statsd_client = statsd.Client(settings.GRAPHITE_PREFIX_NAME, statsd_connection)
 gauge = statsd_client.get_client(class_=statsd.Gauge)
@@ -141,6 +144,7 @@ def process_health_check():
 
 if __name__ == "__main__":    
     try:
-        main(sys.argv)
+        logger.info("abc")
+#         main(sys.argv)
     except Exception as inst:
         logger.exception(inst)
