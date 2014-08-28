@@ -3,28 +3,28 @@ Created on Aug 11, 2014
 
 @author: Duc Le
 '''
-import httplib, urllib
+import bottle
 import logging
 import os
+import time
+import djangoenv
+import requests
+import simplejson as json
 
 from bottle import request, static_file
-import bottle
-import djangoenv
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 from gevent.pywsgi import WSGIServer
-
 from lunex.appmanagersvc.common import httputils
-from lunex.appmanagersvc.models import Application, Configuration
-import simplejson as json
-
-
+from lunex.appmanagersvc.models import Application, Configuration, Health, HealthType
+from string import upper
+from time import mktime
+from lunex.appmanagersvc.utils import Utils
 
 app = bottle.Bottle()
 
 
-import os
 basedir = os.path.dirname(os.path.abspath(__file__))
 logging.config.fileConfig(basedir + "/logging.conf", defaults=None, disable_existing_loggers=True)
 logger = logging.getLogger('lunex.appmanagersvc.web')
@@ -125,6 +125,8 @@ def save_config():
         filename = params.get('filename', '')
         content = params.get('content', '')
         updatedby = params.get('updatedby', '').strip()
+        latency = params.get('latency', '')
+        ip = params.get('ip', '')
         assert updatedby, 'updatedby param can not null'
         code = success_code
         message = 'OK'
@@ -148,6 +150,10 @@ def save_config():
                     conf.HealthUrl = health_url
                 if mime_type:
                     conf.MimeType = mime_type
+                if latency:
+                    conf.Latency = latency
+                if ip:
+                    conf.Ip = ip
                 conf.Content = content
                 if filename:
                     conf.Filename = filename
@@ -243,6 +249,8 @@ def register_app():
             mime_type = params.get('mime_type', '')
             filename = params.get('filename', '')
             content = params.get('content', '')
+            latency = params.get('latency', '')
+            ip = params.get('ip', '')
             isCreateConf = False
             conf = Configuration(Application=app_obj,CreatedBy=createdBy)
             if config_url:
@@ -260,6 +268,12 @@ def register_app():
             if filename:
                 isCreateConf = True
                 conf.Filename = filename
+            if latency:
+                isCreateConf = True
+                conf.Latency = latency
+            if ip:
+                isCreateConf = True
+                conf.Ip = ip
             if isCreateConf == True:
                 conf.save()
             transaction.commit()
@@ -327,28 +341,7 @@ def list_instance():
             
         app_list = []
         for item in apps:
-            item.Parent
-            r = {}
-            r['Id'] = item.pk
-            r['AppName'] = item.AppName
-            r['Instance'] = item.Instance
-            r['CreatedBy'] = item.CreatedBy
-            r['CreatedDate'] = item.CreatedDate.strftime('%m/%d/%Y %I:%M:%S %p')
-            r['UpdatedBy'] = item.UpdatedBy if item.UpdatedBy else None
-            r['Type'] = 1 if item.Parent else 0
-            r['UpdatedDate'] = item.UpdatedDate.strftime('%m/%d/%Y %I:%M:%S %p') if item.UpdatedDate else None
-            r['Content'] = ''
-            r['Filename'] = ''
-            r['ConfigUrl'] = ''
-            r['HealthUrl'] = ''
-            conf = None
-            if Configuration.objects.filter(Application=item).exists() :
-                conf = Configuration.objects.filter(Application=item)[0]
-            if conf:
-                r['Content'] = conf.Content if conf.Content else '' 
-                r['Filename'] = conf.Filename if conf.Filename else '' 
-                r['ConfigUrl'] = conf.ConfigUrl if conf.ConfigUrl else '' 
-                r['HealthUrl'] = conf.HealthUrl if conf.HealthUrl else '' 
+            r = get_instance_detail(item)
             app_list.append(r)
             
         result['Result'] = app_list
@@ -370,27 +363,7 @@ def get_instance():
             
         app_list = []
         for item in apps:
-            r = {}
-            r['Id'] = item.pk
-            r['AppName'] = item.AppName
-            r['Instance'] = item.Instance
-            r['CreatedBy'] = item.CreatedBy
-            r['CreatedDate'] = item.CreatedDate.strftime('%m/%d/%Y %I:%M:%S %p')
-            r['UpdatedBy'] = item.UpdatedBy if item.UpdatedBy else None
-            r['Type'] = 1 if item.Parent else 0
-            r['UpdatedDate'] = item.UpdatedDate.strftime('%m/%d/%Y %I:%M:%S %p') if item.UpdatedDate else None
-            r['Content'] = ''
-            r['Filename'] = ''
-            r['ConfigUrl'] = ''
-            r['HealthUrl'] = ''
-            conf = None
-            if Configuration.objects.filter(Application=item).exists() :
-                conf = Configuration.objects.filter(Application=item)[0]
-            if conf:
-                r['Content'] = conf.Content if conf.Content else '' 
-                r['Filename'] = conf.Filename if conf.Filename else '' 
-                r['ConfigUrl'] = conf.ConfigUrl if conf.ConfigUrl else '' 
-                r['HealthUrl'] = conf.HealthUrl if conf.HealthUrl else '' 
+            r = get_instance_detail(item)
             app_list.append(r)
             
         result['Result'] = app_list
@@ -399,6 +372,98 @@ def get_instance():
         result = {'Code': -1, 'Message': ex.__str__()}
     return result
 
+def get_instance_detail(instance):
+    r = {}
+    r['Id'] = instance.pk
+    r['AppName'] = instance.AppName
+    r['Instance'] = instance.Instance
+    r['CreatedBy'] = instance.CreatedBy
+    r['CreatedDate'] = instance.CreatedDate.strftime('%m/%d/%Y %I:%M:%S %p')
+    r['UpdatedBy'] = instance.UpdatedBy if instance.UpdatedBy else None
+    r['Type'] = 1 if instance.Parent else 0
+    r['UpdatedDate'] = instance.UpdatedDate.strftime('%m/%d/%Y %I:%M:%S %p') if instance.UpdatedDate else None
+    r['Content'] = ''
+    r['Filename'] = ''
+    r['ConfigUrl'] = ''
+    r['HealthUrl'] = ''
+    r['Latency'] = ''
+    r['Ip'] = ''
+    conf = None
+    if Configuration.objects.filter(Application=instance).exists() :
+        conf = Configuration.objects.filter(Application=instance)[0]
+    if conf:
+        r['Content'] = conf.Content if conf.Content else '' 
+        r['Filename'] = conf.Filename if conf.Filename else '' 
+        r['ConfigUrl'] = conf.ConfigUrl if conf.ConfigUrl else '' 
+        r['HealthUrl'] = conf.HealthUrl if conf.HealthUrl else '' 
+        r['Latency'] = conf.Latency if str(conf.Latency) else ''
+        r['Ip'] = conf.Ip if conf.Ip else ''
+    return r
+
+@app.route('/health', method='GET', name='list_health')
+@app.route('/health/', method='GET', name='list_health')
+def list_health():
+    result = {'Code': 1, 'Message': 'OK'}
+    try:
+        params = dict(request.query.items())
+        instance = params.get('instance', '').strip()
+        
+        lstHealth = Health.objects.filter().order_by('Application__Instance')
+        if instance:
+            lstHealth = lstHealth.filter(Application__Instance__icontains=instance)
+#         http://192.168.93.112:8001/render/?target=test.appmanager.*.responseTime.sum&maxDataPoints=1&format=json
+        
+        map24Ping = get_avg_response_time(24, settings.GRAPHITE_SUFFIX_PING)
+        map1Ping = get_avg_response_time(1, settings.GRAPHITE_SUFFIX_PING)
+        
+        map24Response = get_avg_response_time(24, settings.GRAPHITE_SUFFIX_RESPONSE)
+        map1Response = get_avg_response_time(1, settings.GRAPHITE_SUFFIX_RESPONSE)
+        app_list = []
+        for item in lstHealth:
+            r = {}
+            r['Id'] = item.pk
+            r['Instance'] = item.Application.Instance  
+            r['Function'] = item.Function
+            r['Type'] = item.Type
+            r['Status'] = item.Status
+            r['LastDowntime'] = item.LastDowntime.strftime('%m/%d/%Y %I:%M:%S %p') if item.LastDowntime else None
+            r['LastUptime'] = item.LastUptime.strftime('%m/%d/%Y %I:%M:%S %p') if item.LastUptime else None
+            r['LastPoll'] = item.LastPoll.strftime('%m/%d/%Y %I:%M:%S %p') if item.LastPoll else None
+            r['LastResponseTime'] = item.LastResponseTime if item.LastResponseTime else '' 
+            r['Uptime'] = (time.time() - (mktime(item.LastUptime.timetuple()) + item.LastUptime.microsecond/1000000.0))*1000 if item.LastUptime else ''
+            if item.Type and item.Type == HealthType.LINK:
+                r['AvgLast1Hr'] = map1Response.get(upper(Utils.remove_special_char(item.Application.Instance))) if map1Response.get(upper(Utils.remove_special_char(item.Application.Instance))) else ''
+                r['AvgLast24Hr'] = map24Response.get(upper(Utils.remove_special_char(item.Application.Instance))) if map24Response.get(upper(Utils.remove_special_char(item.Application.Instance))) else ''
+            else:
+                r['AvgLast1Hr'] = map1Ping.get(upper(Utils.remove_special_char(item.Application.Instance))) if map1Ping.get(upper(Utils.remove_special_char(item.Application.Instance))) else ''
+                r['AvgLast24Hr'] = map24Ping.get(upper(Utils.remove_special_char(item.Application.Instance))) if map24Ping.get(upper(Utils.remove_special_char(item.Application.Instance))) else ''
+            app_list.append(r)
+        result['Result'] = app_list
+    except Exception, ex:
+        logger.exception(ex)
+        result = {'Code': error_code, 'Message': ex.__str__()}
+    return result
+
+def get_avg_response_time(numHours, suffixName):
+    map = {}
+    rawData = None
+    try:
+        url = "http://{0}:{1}/render/?target={2}.*.{3}.sum&maxDataPoints=1&format=json&from=-{4}h".format(settings.GRAPHITE_SERVER, settings.GRAPHITE_OUTPUT_PORT, settings.GRAPHITE_PREFIX_NAME, suffixName, numHours)
+        rawData = requests.get(url ,timeout=5)
+        logger.info('graphite get avg response time : ' + url)
+    except Exception, ex:
+        pass
+    if rawData:
+        try:
+            obj = json.loads(rawData.content)
+            for child in obj:
+                target = child.get("target")
+                target = upper(child.get("target").replace(settings.GRAPHITE_PREFIX_NAME +'.','').replace('.' + suffixName+'.sum',''))
+                datapoints = int(child.get("datapoints")[0][0])
+                map[target] = datapoints
+        except Exception, ex:
+            pass
+    return map
 #====================================Init======================================#
 def init_server():
     from django.conf import settings
@@ -412,7 +477,7 @@ if __name__ == "__main__":
     parser.add_argument("-p", help="port")
     args = parser.parse_args()    
     ip_addr = '0.0.0.0'
-    port = 8090
+    port = 9004
     if args.i:
         ip_addr = args.i
     if args.p:

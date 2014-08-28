@@ -5,27 +5,30 @@ Created on Aug 18, 2014
 
 @author: DuyNguyen
 '''
-import djangoenv
 import gc
 import logging
-import requests
+import os
 import sys
+import time
+import djangoenv
+import requests
 import statsd
 import simplejson as json
-import time
+import socket
 from django.conf import settings
 from django.db import transaction
 from django.template import Context
 from django.template.loader import get_template
-
+from datetime import datetime
 from lunex.appmanagersvc.common import emailutils, httputils
+from lunex.appmanagersvc.models import Application, Configuration, Health, \
+    HealthStatus, HealthType
 from lunex.appmanagersvc.utils.daemon import Daemon
-from lunex.appmanagersvc.models import Application, Configuration
+from lunex.appmanagersvc.utils import Utils
 
 
 settings.LOGGING_OUTPUT = "/tmp/HealthCheck_daemon.log"
 
-import os
 basedir = os.path.dirname(os.path.abspath(__file__))
 logging.config.fileConfig(basedir + "/logging.conf", defaults=None, disable_existing_loggers=True)
 
@@ -33,7 +36,6 @@ logger = logging.getLogger('lunex.appmanagersvc.health_check_daemon')
 
 statsd_connection = statsd.Connection(host=str(settings.GRAPHITE_SERVER))
 statsd_client = statsd.Client(settings.GRAPHITE_PREFIX_NAME, statsd_connection)
-gauge = statsd_client.get_client(class_=statsd.Gauge)
 
 def main(args):
     
@@ -111,6 +113,11 @@ def send_sms(instanceName):
 
 @transaction.commit_manually
 def process_health_check():
+    process_link_check()
+    process_ping_check()
+    transaction.commit()
+
+def process_link_check():
     try:
         logger.info("begin process_health_check")
         apps = Application.objects.filter(Parent__isnull=False)
@@ -122,10 +129,15 @@ def process_health_check():
                     conf = Configuration.objects.filter(Application=item)[0]
                 if conf and conf.HealthUrl:
                     r = None
+                    startTime = time.time()*1000
+                    timer = statsd_client.get_client(class_=statsd.Timer)
+                    timer.start()
                     try:
                         r = requests.get(conf.HealthUrl,timeout=5)
                     except:
                         pass
+                    timer.stop(Utils.remove_special_char(item.Instance) + "." + settings.GRAPHITE_SUFFIX_RESPONSE)
+                    responseTime = time.time()*1000 - startTime
                     isOk = False
                     if r and r.status_code == 200:
                         isOk = True
@@ -140,15 +152,30 @@ def process_health_check():
                             
                         except Exception, ex:
                             pass
+                    healthObj = Health(Application=item,Function=conf.HealthUrl, Type=HealthType.LINK)
+                    oldStatus = None
+                    if Health.objects.filter(Application=item,Function=conf.HealthUrl,Type=HealthType.LINK).exists() :
+                        healthObj = Health.objects.filter(Application=item,Type=HealthType.LINK)[0]
+                        oldStatus = healthObj.Status
+                    healthObj.LastPoll = datetime.now()
                     if isOk:
                         logger.info("process_health_check %s is OK" % item.Instance)
-                        gauge.send(item.Instance, 1)
+                        healthObj.Status = HealthStatus.GREEN
+                        healthObj.LastResponseTime = responseTime
+                        if str(conf.Latency) and conf.Latency*1000 <= responseTime:
+                            healthObj.Status = HealthStatus.YELLOW
+                        if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.RED):
+                            healthObj.LastUptime = datetime.now()
+                        
                     else:
                         logger.info("process_health_check %s is not OK" % item.Instance)
-                        gauge.send(item.Instance, 0)
-                        #app goes down, send sms & email
-                        send_mail(item.Instance)
-                        send_sms(item.Instance)
+                        #app goes down
+                        healthObj.Status = HealthStatus.RED
+                        if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.GREEN):
+                            healthObj.LastDowntime = datetime.now()
+#                             send_mail(item.Instance)
+#                             send_sms(item.Instance)
+                    healthObj.save()
                 else:
                     logger.info("conf/conf.HealthUrl of %s is null" % item.Instance)
             except Exception, ex:
@@ -157,10 +184,85 @@ def process_health_check():
     except Exception, ex:
         logger.exception(ex)
     logger.info("end process_health_check")
-    transaction.commit()
+    
+def process_ping_check():
+    try:
+        logger.info("begin process_ping_check")
+        apps = Application.objects.filter(Parent__isnull=False)
+        for item in apps:
+            logger.info("process_ping_check %s " % item.Instance)
+            try:
+                conf = None
+                if Configuration.objects.filter(Application=item).exists() :
+                    conf = Configuration.objects.filter(Application=item)[0]
+                if conf and conf.Ip:
+                    host = conf.Ip.split(":")[0]
+                    port = int(conf.Ip.split(":")[1])
+                    isOk = False
+                    startTime = time.time()*1000
+                    timer = statsd_client.get_client(class_=statsd.Timer)
+                    timer.start()
+                    try:
+                        isOk = telnet(host, port)
+                    except:
+                        pass
+                    timer.stop(Utils.remove_special_char(item.Instance) + "." + settings.GRAPHITE_SUFFIX_PING)
+                    responseTime = time.time()*1000 - startTime
+                  
+                    healthObj = Health(Application=item,Function=conf.Ip, Type=HealthType.TELNET)
+                    oldStatus = None
+                    if Health.objects.filter(Application=item, Function=conf.Ip,Type=HealthType.TELNET).exists() :
+                        healthObj = Health.objects.filter(Application=item,Type=HealthType.TELNET)[0]
+                        oldStatus = healthObj.Status
+                    healthObj.LastPoll = datetime.now()
+                    if isOk:
+                        logger.info("process_ping_check %s is OK" % item.Instance)
+                        healthObj.Status = HealthStatus.GREEN
+                        healthObj.LastResponseTime = responseTime
+                        if str(conf.Latency) and conf.Latency*1000 <= responseTime:
+                            healthObj.Status = HealthStatus.YELLOW
+                        if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.RED):
+                            healthObj.LastUptime = datetime.now()
+                        
+                    else:
+                        logger.info("process_ping_check %s is not OK" % item.Instance)
+                        #app goes down
+                        healthObj.Status = HealthStatus.RED
+                        if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.GREEN):
+                            healthObj.LastDowntime = datetime.now()
+#                             send_mail(item.Instance)
+#                             send_sms(item.Instance)
+                    healthObj.save()
+                else:
+                    logger.info("conf/conf.ip of %s is null" % item.Instance)
+            except Exception, ex:
+                logger.info("process_ping_check %s error, message : %s" % (item.Instance,ex.__str__()))
+                pass
+    except Exception, ex:
+        logger.exception(ex)
+    logger.info("end process_ping_check")
+    
+def telnet(host, port):
+    host_addr = ""
 
+    try:
+        host_addr = socket.gethostbyname(host)
+
+        if not host_addr:
+            return False
+
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(1)
+        s.connect((host, port))
+        s.close()
+    except:
+        return False
+
+    return True
 if __name__ == "__main__":    
     try:
-        main(sys.argv)
+        process_health_check()
+#         main(sys.argv)
+        
     except Exception as inst:
         logger.exception(inst)

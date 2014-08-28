@@ -28,6 +28,7 @@ def to_enum_choice(enum,str_val,default = None):
     except:
         return default;
 
+
 class ConfigMimeType(object):
     JSON = 'json'
     XML = 'xml'
@@ -65,4 +66,36 @@ class Configuration(models.Model):
     CreatedBy = models.CharField(max_length=20)
     CreatedDate = models.DateTimeField(auto_now_add=True)
     UpdatedBy = models.CharField(max_length=20, null=True)
+    UpdatedDate = models.DateTimeField(auto_now=True)
+    Latency = models.IntegerField(null=True)
+    Ip = models.CharField(max_length=100,null=True)
+
+class HealthStatus(object):
+    (RED, YELLOW, GREEN) = range(3)
+    
+    choices = [(RED, 'RED'),
+               (YELLOW, 'YELLOW'),
+               (GREEN, 'GREEN'),
+               ]
+class HealthType(object):
+    (TELNET, LINK) = range(2)
+    
+    choices = [(TELNET, 'TELNET'),
+               (LINK, 'LINK'),
+               ]
+class Health(models.Model):
+    class Meta:
+        db_table = 'app_health'
+        unique_together = ['Application', 'Function', 'Type']
+    Application = models.ForeignKey(Application)
+    Function = models.CharField(max_length=250)
+    Status = models.SmallIntegerField(choices=from_enum_choice(HealthStatus),
+                                    default=HealthStatus.GREEN)
+    Type = models.SmallIntegerField(choices=from_enum_choice(HealthType),
+                                    default=HealthType.LINK)
+    LastDowntime = models.DateTimeField(null=True)
+    LastUptime = models.DateTimeField(null=True)
+    LastPoll = models.DateTimeField(null=True)
+    LastResponseTime = models.IntegerField(null=True)
+    CreatedDate = models.DateTimeField(auto_now_add=True)
     UpdatedDate = models.DateTimeField(auto_now=True)

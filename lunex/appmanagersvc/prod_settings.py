@@ -16,6 +16,7 @@ DATABASES = {
 SLEEPING_TIME = 60
 SMS_URL = 'http://192.168.93.160:8081/sms/'
 SMS_FROM_PHONE = '6782718212'
+SMS_TO_PHONES = ['84988608168']
 '''
 Email setting
 '''
@@ -25,7 +26,6 @@ EMAIL_HOST_USER = "tcard"
 EMAIL_HOST_PASSWORD = "tech88trex"
 FROM_EMAIL = ['devteam@lunextelecom.com']
 TO_EMAILS = ['duynguyen@lunextelecom.com']
-TO_PHONES = ['84988608168']
 
 '''Template dir'''
 import os;
@@ -37,5 +37,8 @@ TEMPLATE_DIRS = (
     TEMPLATE_ROOT
 )
 '''Graphite'''
-GRAPHITE_PREFIX_NAME = 'APP_MANAGER_'
+GRAPHITE_PREFIX_NAME = 'appmanager'
 GRAPHITE_SERVER = "192.168.93.69"
+GRAPHITE_OUTPUT_PORT = 8001
+GRAPHITE_SUFFIX_RESPONSE = '.reponse_time'
+GRAPHITE_SUFFIX_PING = '.ping_time'
