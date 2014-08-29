@@ -428,7 +428,7 @@ def list_health():
         params = dict(request.query.items())
         instance = params.get('instance', '').strip()
         
-        lstHealth = Health.objects.filter().order_by('Application__Instance')
+        lstHealth = Health.objects.filter().order_by('Application__Instance,-LastPoll')
         if instance:
             lstHealth = lstHealth.filter(Application__Instance__icontains=instance)
 #         http://192.168.93.112:8001/render/?target=test.appmanager.*.responseTime.sum&maxDataPoints=1&format=json
