@@ -15,14 +15,15 @@ import requests
 import statsd
 import simplejson as json
 import socket
+from django.db.models import Q
 from django.conf import settings
 from django.db import transaction
 from django.template import Context
 from django.template.loader import get_template
 from datetime import datetime
 from lunex.appmanagersvc.common import emailutils, httputils
-from lunex.appmanagersvc.models import Application, Configuration, Health, \
-    HealthStatus, HealthType
+from lunex.appmanagersvc.models import Application, Health, \
+    HealthStatus, HealthType, HealthConf
 from lunex.appmanagersvc.utils.daemon import Daemon
 from lunex.appmanagersvc.utils import Utils
 
@@ -117,6 +118,43 @@ def process_health_check():
     process_ping_check()
     transaction.commit()
 
+def get_full_url(ip, url):
+    """
+    Returns true if s is valid http url, else false 
+    Arguments:
+    - `s`:
+    """
+    if url.startswith('http'):
+        return url
+    else:
+        return ip + url
+    
+def _check_url_alive(url, instance):
+    r = None
+    startTime = time.time()*1000
+    timer = statsd_client.get_client(class_=statsd.Timer)
+    timer.start()
+    try:
+        r = requests.get(url,timeout=5)
+    except:
+        pass
+    timer.stop(Utils.remove_special_char(instance) + "." + settings.GRAPHITE_SUFFIX_RESPONSE)
+    responseTime = time.time()*1000 - startTime
+    isOk = False
+    if r and r.status_code == 200:
+        isOk = True
+        #check dropwizard
+        try:
+            obj = json.loads(r.content)
+            for child in obj.items():
+                attr = child[1]
+                if not attr.get("healthy"):
+                    isOk = False
+                    break
+        except Exception, ex:
+            pass
+    return isOk, responseTime
+
 def process_link_check():
     try:
         logger.info("begin process_health_check")
@@ -124,60 +162,44 @@ def process_link_check():
         for item in apps:
             logger.info("process_health_check %s " % item.Instance)
             try:
-                conf = None
-                if Configuration.objects.filter(Application=item).exists() :
-                    conf = Configuration.objects.filter(Application=item)[0]
-                if conf and conf.HealthUrl:
-                    r = None
-                    startTime = time.time()*1000
-                    timer = statsd_client.get_client(class_=statsd.Timer)
-                    timer.start()
-                    try:
-                        r = requests.get(conf.HealthUrl,timeout=5)
-                    except:
-                        pass
-                    timer.stop(Utils.remove_special_char(item.Instance) + "." + settings.GRAPHITE_SUFFIX_RESPONSE)
-                    responseTime = time.time()*1000 - startTime
-                    isOk = False
-                    if r and r.status_code == 200:
-                        isOk = True
-                        #check dropwizard
-                        try:
-                            obj = json.loads(r.content)
-                            for child in obj.items():
-                                attr = child[1]
-                                if not attr.get("healthy"):
-                                    isOk = False
-                                    break
+                latency = None
+                if item.Latency:
+                    latency = item.Latency
+                elif item.Parent.Latency:
+                    latency = item.Parent.Latency
+                
+                lstHealthCheck = None 
+                if HealthConf.objects.filter((Q(Application=item)|Q(Application=item.Parent))).exists() :
+                    lstHealthCheck = HealthConf.objects.filter((Q(Application=item)|Q(Application=item.Parent))).values_list('Url', flat=True)
+                if lstHealthCheck :
+                    for url in lstHealthCheck:
+                        url = get_full_url(item.Ip, url)
+                        isOk, responseTime = _check_url_alive(url, item.Instance)
+                        healthObj = Health(Application=item,Function=url, Type=HealthType.LINK)
+                        oldStatus = None
+                        if Health.objects.filter(Application=item,Function=url,Type=HealthType.LINK).exists() :
+                            healthObj = Health.objects.filter(Application=item,Type=HealthType.LINK)[0]
+                            oldStatus = healthObj.Status
+                        healthObj.LastPoll = datetime.now()
+                        if isOk:
+                            logger.info("process_health_check %s is OK" % item.Instance)
+                            healthObj.Status = HealthStatus.GREEN
+                            healthObj.LastResponseTime = responseTime
+                            if latency*1000 <= responseTime:
+                                healthObj.Status = HealthStatus.YELLOW
+                            if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.RED):
+                                healthObj.LastUptime = datetime.now()
                             
-                        except Exception, ex:
-                            pass
-                    healthObj = Health(Application=item,Function=conf.HealthUrl, Type=HealthType.LINK)
-                    oldStatus = None
-                    if Health.objects.filter(Application=item,Function=conf.HealthUrl,Type=HealthType.LINK).exists() :
-                        healthObj = Health.objects.filter(Application=item,Type=HealthType.LINK)[0]
-                        oldStatus = healthObj.Status
-                    healthObj.LastPoll = datetime.now()
-                    if isOk:
-                        logger.info("process_health_check %s is OK" % item.Instance)
-                        healthObj.Status = HealthStatus.GREEN
-                        healthObj.LastResponseTime = responseTime
-                        if str(conf.Latency) and conf.Latency*1000 <= responseTime:
-                            healthObj.Status = HealthStatus.YELLOW
-                        if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.RED):
-                            healthObj.LastUptime = datetime.now()
-                        
-                    else:
-                        logger.info("process_health_check %s is not OK" % item.Instance)
-                        #app goes down
-                        healthObj.Status = HealthStatus.RED
-                        if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.GREEN):
-                            healthObj.LastDowntime = datetime.now()
-                            send_mail(item.Instance)
-                            send_sms(item.Instance)
-                    healthObj.save()
-                else:
-                    logger.info("conf/conf.HealthUrl of %s is null" % item.Instance)
+                        else:
+                            logger.info("process_health_check %s is not OK" % item.Instance)
+                            #app goes down
+                            healthObj.Status = HealthStatus.RED
+                            if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.GREEN):
+                                healthObj.LastDowntime = datetime.now()
+#                                 send_mail(item.Instance)
+#                                 send_sms(item.Instance)
+                        healthObj.save()
+                
             except Exception, ex:
                 logger.info("process_health_check %s error, message : %s" % (item.Instance,ex.__str__()))
                 pass
@@ -192,12 +214,11 @@ def process_ping_check():
         for item in apps:
             logger.info("process_ping_check %s " % item.Instance)
             try:
-                conf = None
-                if Configuration.objects.filter(Application=item).exists() :
-                    conf = Configuration.objects.filter(Application=item)[0]
-                if conf and conf.Ip:
-                    host = conf.Ip.split(":")[0]
-                    port = int(conf.Ip.split(":")[1])
+                if item.Ip:
+                    ip = item.Ip
+                    ip = ip.lower().replace("http://","").replace("https://","")
+                    host = ip.split(":")[0]
+                    port = int(ip.split(":")[1])
                     isOk = False
                     startTime = time.time()*1000
                     timer = statsd_client.get_client(class_=statsd.Timer)
@@ -209,9 +230,9 @@ def process_ping_check():
                     timer.stop(Utils.remove_special_char(item.Instance) + "." + settings.GRAPHITE_SUFFIX_PING)
                     responseTime = time.time()*1000 - startTime
                   
-                    healthObj = Health(Application=item,Function=conf.Ip, Type=HealthType.TELNET)
+                    healthObj = Health(Application=item,Function=item.Ip, Type=HealthType.TELNET)
                     oldStatus = None
-                    if Health.objects.filter(Application=item, Function=conf.Ip,Type=HealthType.TELNET).exists() :
+                    if Health.objects.filter(Application=item, Function=item.Ip,Type=HealthType.TELNET).exists() :
                         healthObj = Health.objects.filter(Application=item,Type=HealthType.TELNET)[0]
                         oldStatus = healthObj.Status
                     healthObj.LastPoll = datetime.now()
@@ -219,7 +240,7 @@ def process_ping_check():
                         logger.info("process_ping_check %s is OK" % item.Instance)
                         healthObj.Status = HealthStatus.GREEN
                         healthObj.LastResponseTime = responseTime
-                        if str(conf.Latency) and conf.Latency*1000 <= responseTime:
+                        if str(item.Latency) and item.Latency*1000 <= responseTime:
                             healthObj.Status = HealthStatus.YELLOW
                         if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.RED):
                             healthObj.LastUptime = datetime.now()
