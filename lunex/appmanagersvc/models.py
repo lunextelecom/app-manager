@@ -74,6 +74,7 @@ class HealthConf(models.Model):
         db_table = 'app_health_conf'
         unique_together = ['Application', 'Url']
     Application = models.ForeignKey(Application)
+    Name = models.CharField(max_length=100)
     Url = models.CharField(max_length=100)
     CreatedDate = models.DateTimeField(auto_now_add=True)
     
@@ -93,13 +94,14 @@ class HealthType(object):
 class Health(models.Model):
     class Meta:
         db_table = 'app_health'
-        unique_together = ['Application', 'Function', 'Type']
+        unique_together = ['Application', 'MetricName', 'Function', 'Type']
     Application = models.ForeignKey(Application)
     Function = models.CharField(max_length=250)
     Status = models.SmallIntegerField(choices=from_enum_choice(HealthStatus),
                                     default=HealthStatus.GREEN)
     Type = models.SmallIntegerField(choices=from_enum_choice(HealthType),
                                     default=HealthType.LINK)
+    MetricName = models.CharField(max_length=250)
     LastDowntime = models.DateTimeField(null=True)
     LastUptime = models.DateTimeField(null=True)
     LastPoll = models.DateTimeField(null=True)

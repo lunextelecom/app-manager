@@ -147,13 +147,19 @@ def save_config():
                     oldContent = conf.Content
                 if config_url:
                     conf.ConfigUrl = config_url
+                HealthConf.objects.filter(Application=app_obj).delete()
                 if health_url:
                     health_url = health_url.split(";")
-                    HealthConf.objects.filter(Application=app_obj).delete()
                     for url in health_url:
                         if url:
-                            tmp = HealthConf(Application=app_obj,Url=url)
-                            tmp.save()
+                            try:
+                                metric_name = url.split("@")[0]
+                                link = url.split("@")[1]
+                                tmp = HealthConf(Application=app_obj,Name=metric_name,Url=link)
+                                tmp.save()
+                            except:
+                                pass
+                            
                 if mime_type:
                     conf.MimeType = mime_type
                 conf.Content = content
@@ -267,8 +273,13 @@ def register_app():
                 health_url = health_url.split(";")
                 for url in health_url:
                     if url:
-                        tmp = HealthConf(Application=app_obj,Url=url)
-                        tmp.save()
+                        try:
+                            metric_name = url.split("@")[0]
+                            link = url.split("@")[1]
+                            tmp = HealthConf(Application=app_obj,Name=metric_name,Url=link)
+                            tmp.save()
+                        except:
+                            pass
             if mime_type:
                 isCreateConf = True
                 conf.MimeType = mime_type
@@ -405,8 +416,8 @@ def get_instance_detail(instance):
         r['Filename'] = conf.Filename if conf.Filename else '' 
         r['ConfigUrl'] = conf.ConfigUrl if conf.ConfigUrl else ''
     if  HealthConf.objects.filter(Application=instance).exists() :
-        for item in HealthConf.objects.filter(Application=instance).values_list('Url', flat=True):
-            r['HealthUrl'] = r['HealthUrl'] + item + ';' 
+        for item in HealthConf.objects.filter(Application=instance):
+            r['HealthUrl'] = r['HealthUrl'] + item.Name + '@' + item.Url + ';' 
     return r
 
 @app.route('/health', method='GET', name='list_health')
@@ -440,12 +451,13 @@ def list_health():
             r['LastPoll'] = item.LastPoll.strftime('%m/%d/%Y %I:%M:%S %p') if item.LastPoll else None
             r['LastResponseTime'] = item.LastResponseTime if item.LastResponseTime else '' 
             r['Uptime'] = (time.time() - (mktime(item.LastUptime.timetuple()) + item.LastUptime.microsecond/1000000.0))*1000 if item.LastUptime else ''
+            metricName = upper(item.MetricName)
             if item.Type and item.Type == HealthType.LINK:
-                r['AvgLast1Hr'] = map1Response.get(upper(Utils.remove_special_char(item.Application.Instance))) if map1Response.get(upper(Utils.remove_special_char(item.Application.Instance))) else ''
-                r['AvgLast24Hr'] = map24Response.get(upper(Utils.remove_special_char(item.Application.Instance))) if map24Response.get(upper(Utils.remove_special_char(item.Application.Instance))) else ''
+                r['AvgLast1Hr'] = map1Response.get(metricName) if map1Response.get(metricName) else ''
+                r['AvgLast24Hr'] = map24Response.get(metricName) if map24Response.get(metricName) else ''
             else:
-                r['AvgLast1Hr'] = map1Ping.get(upper(Utils.remove_special_char(item.Application.Instance))) if map1Ping.get(upper(Utils.remove_special_char(item.Application.Instance))) else ''
-                r['AvgLast24Hr'] = map24Ping.get(upper(Utils.remove_special_char(item.Application.Instance))) if map24Ping.get(upper(Utils.remove_special_char(item.Application.Instance))) else ''
+                r['AvgLast1Hr'] = map1Ping.get(metricName) if map1Ping.get(metricName) else ''
+                r['AvgLast24Hr'] = map24Ping.get(metricName) if map24Ping.get(metricName) else ''
             app_list.append(r)
         result['Result'] = app_list
     except Exception, ex:

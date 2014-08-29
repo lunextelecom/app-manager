@@ -129,7 +129,7 @@ def get_full_url(ip, url):
     else:
         return ip + url
     
-def _check_url_alive(url, instance):
+def _check_url_alive(metricName, url):
     r = None
     startTime = time.time()*1000
     timer = statsd_client.get_client(class_=statsd.Timer)
@@ -138,7 +138,7 @@ def _check_url_alive(url, instance):
         r = requests.get(url,timeout=5)
     except:
         pass
-    timer.stop(Utils.remove_special_char(instance) + "." + settings.GRAPHITE_SUFFIX_RESPONSE)
+    timer.stop(metricName  + '.' + settings.GRAPHITE_SUFFIX_RESPONSE)
     responseTime = time.time()*1000 - startTime
     isOk = False
     if r and r.status_code == 200:
@@ -170,11 +170,13 @@ def process_link_check():
                 
                 lstHealthCheck = None 
                 if HealthConf.objects.filter((Q(Application=item)|Q(Application=item.Parent))).exists() :
-                    lstHealthCheck = HealthConf.objects.filter((Q(Application=item)|Q(Application=item.Parent))).values_list('Url', flat=True)
+                    lstHealthCheck = HealthConf.objects.filter((Q(Application=item)|Q(Application=item.Parent)))
                 if lstHealthCheck :
-                    for url in lstHealthCheck:
+                    for child in lstHealthCheck:
+                        metricName = Utils.remove_special_char(item.Instance + child.Name);
+                        url = child.Url
                         url = get_full_url(item.Ip, url)
-                        isOk, responseTime = _check_url_alive(url, item.Instance)
+                        isOk, responseTime = _check_url_alive(metricName, url)
                         healthObj = Health(Application=item,Function=url, Type=HealthType.LINK)
                         oldStatus = None
                         if Health.objects.filter(Application=item,Function=url,Type=HealthType.LINK).exists() :
@@ -215,6 +217,7 @@ def process_ping_check():
             logger.info("process_ping_check %s " % item.Instance)
             try:
                 if item.Ip:
+                    metricName = Utils.remove_special_char(item.Instance);
                     latency = None
                     if item.Latency:
                         latency = item.Latency
@@ -232,12 +235,12 @@ def process_ping_check():
                         isOk = telnet(host, port)
                     except:
                         pass
-                    timer.stop(Utils.remove_special_char(item.Instance) + "." + settings.GRAPHITE_SUFFIX_PING)
+                    timer.stop(metricName + "." + settings.GRAPHITE_SUFFIX_PING)
                     responseTime = time.time()*1000 - startTime
                   
-                    healthObj = Health(Application=item,Function=item.Ip, Type=HealthType.TELNET)
+                    healthObj = Health(Application=item,Function=item.Ip, MetricName=metricName, Type=HealthType.TELNET)
                     oldStatus = None
-                    if Health.objects.filter(Application=item, Function=item.Ip,Type=HealthType.TELNET).exists() :
+                    if Health.objects.filter(Application=item, Function=item.Ip, MetricName=metricName, Type=HealthType.TELNET).exists() :
                         healthObj = Health.objects.filter(Application=item,Type=HealthType.TELNET)[0]
                         oldStatus = healthObj.Status
                     healthObj.LastPoll = datetime.now()
@@ -256,8 +259,8 @@ def process_ping_check():
                         healthObj.Status = HealthStatus.RED
                         if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.GREEN):
                             healthObj.LastDowntime = datetime.now()
-                            send_mail(item.Instance)
-                            send_sms(item.Instance)
+#                             send_mail(item.Instance)
+#                             send_sms(item.Instance)
                     healthObj.save()
                 else:
                     logger.info("conf/conf.ip of %s is null" % item.Instance)
@@ -287,7 +290,7 @@ def telnet(host, port):
     return True
 if __name__ == "__main__":    
     try:
-        main(sys.argv)
-        
+#         main(sys.argv)
+        process_health_check()
     except Exception as inst:
         logger.exception(inst)
