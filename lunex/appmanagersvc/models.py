@@ -52,6 +52,8 @@ class Application(models.Model):
     CreatedDate = models.DateTimeField(auto_now_add=True)
     UpdatedBy = models.CharField(max_length=20, null=True)
     UpdatedDate = models.DateTimeField(auto_now=True)    
+    Latency = models.IntegerField(null=True)
+    Ip = models.CharField(max_length=100,null=True)
 
 class Configuration(models.Model):
     class Meta:
@@ -59,7 +61,6 @@ class Configuration(models.Model):
         unique_together = ['Application']
     Application = models.ForeignKey(Application)
     ConfigUrl = models.CharField(max_length=100)
-    HealthUrl = models.CharField(max_length=100)
     Filename = models.TextField()
     Content = models.TextField()
     MimeType = models.CharField(max_length=20)
@@ -67,9 +68,15 @@ class Configuration(models.Model):
     CreatedDate = models.DateTimeField(auto_now_add=True)
     UpdatedBy = models.CharField(max_length=20, null=True)
     UpdatedDate = models.DateTimeField(auto_now=True)
-    Latency = models.IntegerField(null=True)
-    Ip = models.CharField(max_length=100,null=True)
 
+class HealthConf(models.Model):
+    class Meta:
+        db_table = 'app_health_conf'
+        unique_together = ['Application', 'Url']
+    Application = models.ForeignKey(Application)
+    Url = models.CharField(max_length=100)
+    CreatedDate = models.DateTimeField(auto_now_add=True)
+    
 class HealthStatus(object):
     (RED, YELLOW, GREEN) = range(3)
     

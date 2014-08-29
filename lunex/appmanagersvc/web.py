@@ -17,7 +17,7 @@ from django.db import transaction
 from django.db.models import Q
 from gevent.pywsgi import WSGIServer
 from lunex.appmanagersvc.common import httputils
-from lunex.appmanagersvc.models import Application, Configuration, Health, HealthType
+from lunex.appmanagersvc.models import Application, Configuration, Health, HealthType, HealthConf
 from string import upper
 from time import mktime
 from lunex.appmanagersvc.utils import Utils
@@ -111,6 +111,7 @@ def get_config():
   
 @app.route('/config', method='PUT', name='save_config')
 @app.route('/config/', method='PUT', name='save_config')
+@transaction.commit_manually
 def save_config():
     try:
         params = dict(request.query.items())
@@ -147,18 +148,23 @@ def save_config():
                 if config_url:
                     conf.ConfigUrl = config_url
                 if health_url:
-                    conf.HealthUrl = health_url
+                    health_url = health_url.split(";")
+                    HealthConf.objects.filter(Application=app_obj).delete()
+                    for url in health_url:
+                        if url:
+                            tmp = HealthConf(Application=app_obj,Url=url)
+                            tmp.save()
                 if mime_type:
                     conf.MimeType = mime_type
-                if latency:
-                    conf.Latency = latency
-                if ip:
-                    conf.Ip = ip
                 conf.Content = content
                 if filename:
                     conf.Filename = filename
                 conf.UpdatedBy = updatedby
                 conf.save()
+                if latency:
+                    app_obj.Latency = latency
+                if ip:
+                    app_obj.Ip = ip
                 app_obj.UpdatedBy = updatedby
                 app_obj.save()
                 #put config change
@@ -172,8 +178,9 @@ def save_config():
                             parent_conf = Configuration.objects.get(Application=app_obj.Parent)
                             if parent_conf.content:
                                 update_config_fly(app_obj.Instance, config_url, parent_conf.filename, parent_conf.content)
-                            
+        transaction.commit()                  
     except Exception, ex:
+        transaction.rollback()
         logger.exception(ex)
         code = error_code
         message = ex.__str__()
@@ -257,8 +264,11 @@ def register_app():
                 isCreateConf = True
                 conf.ConfigUrl = config_url
             if health_url:
-                isCreateConf = True
-                conf.HealthUrl = health_url
+                health_url = health_url.split(";")
+                for url in health_url:
+                    if url:
+                        tmp = HealthConf(Application=app_obj,Url=url)
+                        tmp.save()
             if mime_type:
                 isCreateConf = True
                 conf.MimeType = mime_type
@@ -268,14 +278,13 @@ def register_app():
             if filename:
                 isCreateConf = True
                 conf.Filename = filename
-            if latency:
-                isCreateConf = True
-                conf.Latency = latency
-            if ip:
-                isCreateConf = True
-                conf.Ip = ip
             if isCreateConf == True:
                 conf.save()
+            if latency:
+                app_obj.Latency = latency
+            if ip:
+                app_obj.Ip = ip
+            app_obj.save()
             transaction.commit()
         else:
             code = error_code
@@ -386,18 +395,18 @@ def get_instance_detail(instance):
     r['Filename'] = ''
     r['ConfigUrl'] = ''
     r['HealthUrl'] = ''
-    r['Latency'] = ''
-    r['Ip'] = ''
+    r['Latency'] = instance.Latency if str(instance.Latency) else ''
+    r['Ip'] = instance.Ip if instance.Ip else ''
     conf = None
     if Configuration.objects.filter(Application=instance).exists() :
         conf = Configuration.objects.filter(Application=instance)[0]
     if conf:
         r['Content'] = conf.Content if conf.Content else '' 
         r['Filename'] = conf.Filename if conf.Filename else '' 
-        r['ConfigUrl'] = conf.ConfigUrl if conf.ConfigUrl else '' 
-        r['HealthUrl'] = conf.HealthUrl if conf.HealthUrl else '' 
-        r['Latency'] = conf.Latency if str(conf.Latency) else ''
-        r['Ip'] = conf.Ip if conf.Ip else ''
+        r['ConfigUrl'] = conf.ConfigUrl if conf.ConfigUrl else ''
+    if  HealthConf.objects.filter(Application=instance).exists() :
+        for item in HealthConf.objects.filter(Application=instance).values_list('Url', flat=True):
+            r['HealthUrl'] = r['HealthUrl'] + item + ';' 
     return r
 
 @app.route('/health', method='GET', name='list_health')
