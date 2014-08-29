@@ -185,7 +185,7 @@ def process_link_check():
                             logger.info("process_health_check %s is OK" % item.Instance)
                             healthObj.Status = HealthStatus.GREEN
                             healthObj.LastResponseTime = responseTime
-                            if latency*1000 <= responseTime:
+                            if str(latency) and latency*1000 <= responseTime:
                                 healthObj.Status = HealthStatus.YELLOW
                             if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.RED):
                                 healthObj.LastUptime = datetime.now()
@@ -215,6 +215,11 @@ def process_ping_check():
             logger.info("process_ping_check %s " % item.Instance)
             try:
                 if item.Ip:
+                    latency = None
+                    if item.Latency:
+                        latency = item.Latency
+                    elif item.Parent.Latency:
+                        latency = item.Parent.Latency
                     ip = item.Ip
                     ip = ip.lower().replace("http://","").replace("https://","")
                     host = ip.split(":")[0]
@@ -240,7 +245,7 @@ def process_ping_check():
                         logger.info("process_ping_check %s is OK" % item.Instance)
                         healthObj.Status = HealthStatus.GREEN
                         healthObj.LastResponseTime = responseTime
-                        if str(item.Latency) and item.Latency*1000 <= responseTime:
+                        if str(latency) and latency*1000 <= responseTime:
                             healthObj.Status = HealthStatus.YELLOW
                         if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.RED):
                             healthObj.LastUptime = datetime.now()
