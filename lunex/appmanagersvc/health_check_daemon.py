@@ -198,8 +198,8 @@ def process_link_check():
                             healthObj.Status = HealthStatus.RED
                             if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.GREEN):
                                 healthObj.LastDowntime = datetime.now()
-#                                 send_mail(item.Instance)
-#                                 send_sms(item.Instance)
+                                send_mail(item.Instance)
+                                send_sms(item.Instance)
                         healthObj.save()
                 
             except Exception, ex:
@@ -259,8 +259,8 @@ def process_ping_check():
                         healthObj.Status = HealthStatus.RED
                         if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.GREEN):
                             healthObj.LastDowntime = datetime.now()
-#                             send_mail(item.Instance)
-#                             send_sms(item.Instance)
+                            send_mail(item.Instance)
+                            send_sms(item.Instance)
                     healthObj.save()
                 else:
                     logger.info("conf/conf.ip of %s is null" % item.Instance)
@@ -290,7 +290,7 @@ def telnet(host, port):
     return True
 if __name__ == "__main__":    
     try:
-#         main(sys.argv)
-        process_health_check()
+         main(sys.argv)
+#         process_health_check()
     except Exception as inst:
         logger.exception(inst)
