@@ -398,10 +398,10 @@ def get_instance_detail(instance):
     r['AppName'] = instance.AppName
     r['Instance'] = instance.Instance
     r['CreatedBy'] = instance.CreatedBy
-    r['CreatedDate'] = instance.CreatedDate.strftime('%m/%d/%Y %I:%M:%S %p')
+    r['CreatedDate'] = instance.CreatedDate.strftime('%m/%d/%Y %H:%M:%S')
     r['UpdatedBy'] = instance.UpdatedBy if instance.UpdatedBy else None
     r['Type'] = 1 if instance.Parent else 0
-    r['UpdatedDate'] = instance.UpdatedDate.strftime('%m/%d/%Y %I:%M:%S %p') if instance.UpdatedDate else None
+    r['UpdatedDate'] = instance.UpdatedDate.strftime('%m/%d/%Y %H:%M:%S') if instance.UpdatedDate else None
     r['Content'] = ''
     r['Filename'] = ''
     r['ConfigUrl'] = ''
@@ -446,9 +446,9 @@ def list_health():
             r['Function'] = item.Function
             r['Type'] = item.Type
             r['Status'] = item.Status
-            r['LastDowntime'] = item.LastDowntime.strftime('%m/%d/%Y %I:%M:%S %p') if item.LastDowntime else None
-            r['LastUptime'] = item.LastUptime.strftime('%m/%d/%Y %I:%M:%S %p') if item.LastUptime else None
-            r['LastPoll'] = item.LastPoll.strftime('%m/%d/%Y %I:%M:%S %p') if item.LastPoll else None
+            r['LastDowntime'] = item.LastDowntime.strftime('%m/%d/%Y %H:%M:%S') if item.LastDowntime else None
+            r['LastUptime'] = item.LastUptime.strftime('%m/%d/%Y %H:%M:%S') if item.LastUptime else None
+            r['LastPoll'] = item.LastPoll.strftime('%m/%d/%Y %H:%M:%S') if item.LastPoll else None
             r['LastResponseTime'] = item.LastResponseTime if item.LastResponseTime else '' 
             r['Uptime'] = (time.time() - (mktime(item.LastUptime.timetuple()) + item.LastUptime.microsecond/1000000.0))*1000 if item.LastUptime else ''
             metricName = upper(item.MetricName)
