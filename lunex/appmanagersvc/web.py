@@ -18,7 +18,7 @@ from django.db.models import Q
 from gevent.pywsgi import WSGIServer
 from lunex.appmanagersvc.common import httputils
 from lunex.appmanagersvc.models import Application, Configuration, Health, HealthType, HealthConf
-from string import upper
+from string import upper, lower
 from time import mktime
 from lunex.appmanagersvc.utils import Utils
 
@@ -428,20 +428,19 @@ def list_health():
         params = dict(request.query.items())
         instance = params.get('instance', '').strip()
         
-        lstHealth = Health.objects.filter().order_by('Application__Instance,-LastPoll')
+        lstHealth = Health.objects.filter().order_by('Application__Instance', 'Type', '-LastPoll')
         if instance:
             lstHealth = lstHealth.filter(Application__Instance__icontains=instance)
 #         http://192.168.93.112:8001/render/?target=test.appmanager.*.responseTime.sum&maxDataPoints=1&format=json
         
-        map24Ping = get_avg_response_time(24, settings.GRAPHITE_SUFFIX_PING)
-        map1Ping = get_avg_response_time(1, settings.GRAPHITE_SUFFIX_PING)
+        map24Hr = get_avg_response_time(24)
+        map1Hr = get_avg_response_time(1)
         
-        map24Response = get_avg_response_time(24, settings.GRAPHITE_SUFFIX_RESPONSE)
-        map1Response = get_avg_response_time(1, settings.GRAPHITE_SUFFIX_RESPONSE)
         app_list = []
         for item in lstHealth:
             r = {}
             r['Id'] = item.pk
+            r['AppName'] = item.Application.AppName
             r['Instance'] = item.Application.Instance  
             r['Function'] = item.Function
             r['Type'] = item.Type
@@ -451,13 +450,9 @@ def list_health():
             r['LastPoll'] = item.LastPoll.strftime('%m/%d/%Y %H:%M:%S') if item.LastPoll else None
             r['LastResponseTime'] = item.LastResponseTime if item.LastResponseTime else '' 
             r['Uptime'] = (time.time() - (mktime(item.LastUptime.timetuple()) + item.LastUptime.microsecond/1000000.0))*1000 if item.LastUptime else ''
-            metricName = upper(item.MetricName)
-            if item.Type and item.Type == HealthType.LINK:
-                r['AvgLast1Hr'] = map1Response.get(metricName) if map1Response.get(metricName) else ''
-                r['AvgLast24Hr'] = map24Response.get(metricName) if map24Response.get(metricName) else ''
-            else:
-                r['AvgLast1Hr'] = map1Ping.get(metricName) if map1Ping.get(metricName) else ''
-                r['AvgLast24Hr'] = map24Ping.get(metricName) if map24Ping.get(metricName) else ''
+            metricName = item.MetricName.strip()
+            r['AvgLast1Hr'] = map1Hr.get(metricName) if map1Hr.get(metricName) else ''
+            r['AvgLast24Hr'] = map24Hr.get(metricName) if map24Hr.get(metricName) else ''
             app_list.append(r)
         result['Result'] = app_list
     except Exception, ex:
@@ -465,11 +460,11 @@ def list_health():
         result = {'Code': error_code, 'Message': ex.__str__()}
     return result
 
-def get_avg_response_time(numHours, suffixName):
+def get_avg_response_time(numHours):
     map = {}
     rawData = None
     try:
-        url = "http://{0}:{1}/render/?target={2}.*.{3}.sum&maxDataPoints=1&format=json&from=-{4}h".format(settings.GRAPHITE_SERVER, settings.GRAPHITE_OUTPUT_PORT, settings.GRAPHITE_PREFIX_NAME, suffixName, numHours)
+        url = "http://{0}:{1}/render/?target={2}.*.*.*.sum&maxDataPoints=1&format=json&from=-{3}h".format(settings.GRAPHITE_SERVER, settings.GRAPHITE_OUTPUT_PORT, settings.GRAPHITE_PREFIX_NAME, numHours)
         rawData = requests.get(url ,timeout=5)
         logger.info('graphite get avg response time : ' + url)
     except Exception, ex:
@@ -479,7 +474,7 @@ def get_avg_response_time(numHours, suffixName):
             obj = json.loads(rawData.content)
             for child in obj:
                 target = child.get("target")
-                target = upper(child.get("target").replace(settings.GRAPHITE_PREFIX_NAME +'.','').replace('.' + suffixName+'.sum',''))
+                target = lower(child.get("target").replace(settings.GRAPHITE_PREFIX_NAME +'.','').replace('.sum','')).strip()
                 datapoints = int(child.get("datapoints")[0][0])
                 map[target] = datapoints
         except Exception, ex:

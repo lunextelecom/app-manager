@@ -124,6 +124,7 @@ def get_full_url(ip, url):
     Arguments:
     - `s`:
     """
+    ip = ip if ip else ''
     if url.startswith('http'):
         return url
     else:
@@ -138,7 +139,7 @@ def _check_url_alive(metricName, url):
         r = requests.get(url,timeout=5)
     except:
         pass
-    timer.stop(metricName  + '.' + settings.GRAPHITE_SUFFIX_RESPONSE)
+    timer.stop(metricName)
     responseTime = time.time()*1000 - startTime
     isOk = False
     if r and r.status_code == 200:
@@ -157,10 +158,10 @@ def _check_url_alive(metricName, url):
 
 def process_link_check():
     try:
-        logger.info("begin process_health_check")
+        logger.debug("begin process_health_check")
         apps = Application.objects.filter(Parent__isnull=False)
         for item in apps:
-            logger.info("process_health_check %s " % item.Instance)
+            logger.debug("process_health_check %s " % item.Instance)
             try:
                 latency = None
                 if item.Latency:
@@ -173,18 +174,18 @@ def process_link_check():
                     lstHealthCheck = HealthConf.objects.filter((Q(Application=item)|Q(Application=item.Parent)))
                 if lstHealthCheck :
                     for child in lstHealthCheck:
-                        metricName = Utils.remove_special_char(item.Instance + child.Name);
+                        metricName = Utils.remove_special_char(item.Instance + '@' + child.Name);
                         url = child.Url
                         url = get_full_url(item.Ip, url)
                         isOk, responseTime = _check_url_alive(metricName, url)
-                        healthObj = Health(Application=item,Function=url, Type=HealthType.LINK)
+                        healthObj = Health(Application=item, Function=url, MetricName=metricName, Type=HealthType.LINK)
                         oldStatus = None
-                        if Health.objects.filter(Application=item,Function=url,Type=HealthType.LINK).exists() :
-                            healthObj = Health.objects.filter(Application=item,Type=HealthType.LINK)[0]
+                        if Health.objects.filter(Application=item, Function=url, MetricName=metricName, Type=HealthType.LINK).exists() :
+                            healthObj = Health.objects.filter(Application=item, Function=url, MetricName=metricName, Type=HealthType.LINK)[0]
                             oldStatus = healthObj.Status
                         healthObj.LastPoll = datetime.now()
                         if isOk:
-                            logger.info("process_health_check %s is OK" % item.Instance)
+                            logger.debug("process_health_check %s is OK" % item.Instance)
                             healthObj.Status = HealthStatus.GREEN
                             healthObj.LastResponseTime = responseTime
                             if str(latency) and latency*1000 <= responseTime:
@@ -193,7 +194,7 @@ def process_link_check():
                                 healthObj.LastUptime = datetime.now()
                             
                         else:
-                            logger.info("process_health_check %s is not OK" % item.Instance)
+                            logger.debug("process_health_check %s is not OK" % item.Instance)
                             #app goes down
                             healthObj.Status = HealthStatus.RED
                             if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.GREEN):
@@ -203,21 +204,21 @@ def process_link_check():
                         healthObj.save()
                 
             except Exception, ex:
-                logger.info("process_health_check %s error, message : %s" % (item.Instance,ex.__str__()))
+                logger.debug("process_health_check %s error, message : %s" % (item.Instance,ex.__str__()))
                 pass
     except Exception, ex:
         logger.exception(ex)
-    logger.info("end process_health_check")
+    logger.debug("end process_health_check")
     
 def process_ping_check():
     try:
-        logger.info("begin process_ping_check")
+        logger.debug("begin process_ping_check")
         apps = Application.objects.filter(Parent__isnull=False)
         for item in apps:
-            logger.info("process_ping_check %s " % item.Instance)
+            logger.debug("process_ping_check %s " % item.Instance)
             try:
                 if item.Ip:
-                    metricName = Utils.remove_special_char(item.Instance);
+                    metricName = Utils.remove_special_char(item.Instance + '@ping');
                     latency = None
                     if item.Latency:
                         latency = item.Latency
@@ -235,13 +236,13 @@ def process_ping_check():
                         isOk = telnet(host, port)
                     except:
                         pass
-                    timer.stop(metricName + "." + settings.GRAPHITE_SUFFIX_PING)
+                    timer.stop(metricName)
                     responseTime = time.time()*1000 - startTime
                   
                     healthObj = Health(Application=item,Function=item.Ip, MetricName=metricName, Type=HealthType.TELNET)
                     oldStatus = None
                     if Health.objects.filter(Application=item, Function=item.Ip, MetricName=metricName, Type=HealthType.TELNET).exists() :
-                        healthObj = Health.objects.filter(Application=item,Type=HealthType.TELNET)[0]
+                        healthObj = Health.objects.filter(Application=item, Function=item.Ip, MetricName=metricName, Type=HealthType.TELNET)[0]
                         oldStatus = healthObj.Status
                     healthObj.LastPoll = datetime.now()
                     if isOk:
@@ -254,7 +255,7 @@ def process_ping_check():
                             healthObj.LastUptime = datetime.now()
                         
                     else:
-                        logger.info("process_ping_check %s is not OK" % item.Instance)
+                        logger.debug("process_ping_check %s is not OK" % item.Instance)
                         #app goes down
                         healthObj.Status = HealthStatus.RED
                         if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.GREEN):
@@ -263,13 +264,13 @@ def process_ping_check():
                             send_sms(item.Instance)
                     healthObj.save()
                 else:
-                    logger.info("conf/conf.ip of %s is null" % item.Instance)
+                    logger.debug("conf/conf.ip of %s is null" % item.Instance)
             except Exception, ex:
-                logger.info("process_ping_check %s error, message : %s" % (item.Instance,ex.__str__()))
+                logger.debug("process_ping_check %s error, message : %s" % (item.Instance,ex.__str__()))
                 pass
     except Exception, ex:
         logger.exception(ex)
-    logger.info("end process_ping_check")
+    logger.debug("end process_ping_check")
     
 def telnet(host, port):
     host_addr = ""
@@ -290,7 +291,7 @@ def telnet(host, port):
     return True
 if __name__ == "__main__":    
     try:
-         main(sys.argv)
-#         process_health_check()
+#          main(sys.argv)
+        process_health_check()
     except Exception as inst:
         logger.exception(inst)
