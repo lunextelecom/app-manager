@@ -291,7 +291,6 @@ def telnet(host, port):
     return True
 if __name__ == "__main__":    
     try:
-#          main(sys.argv)
-        process_health_check()
+        main(sys.argv)
     except Exception as inst:
         logger.exception(inst)

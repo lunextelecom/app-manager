@@ -54,4 +54,4 @@ GRAPHITE_SERVER = "192.168.93.112"
 GRAPHITE_OUTPUT_PORT = 8001
 GRAPHITE_SUFFIX_RESPONSE = 'reponse_time'
 GRAPHITE_SUFFIX_PING = 'ping_time'
-from lunex.appmanagersvc.prod_settings import *
+#from lunex.appmanagersvc.prod_settings import *
