@@ -112,11 +112,17 @@ def send_sms(instanceName):
         result = {'Code': -1, 'Message': ex.__str__()}
     return result
 
-@transaction.commit_manually
 def process_health_check():
-    process_link_check()
-    process_ping_check()
-    transaction.commit()
+    logger.debug("start process_health_check")
+    try:
+        process_link_check()
+    except Exception, ex:
+        logger.exception(ex)
+    try:
+        process_ping_check()
+    except Exception, ex:
+        logger.exception(ex)
+    logger.debug("end process_health_check")
 
 def get_full_url(ip, url):
     """
@@ -156,12 +162,13 @@ def _check_url_alive(metricName, url):
             pass
     return isOk, responseTime
 
+@transaction.commit_manually
 def process_link_check():
     try:
-        logger.debug("begin process_health_check")
+        logger.debug("begin process_link_check")
         apps = Application.objects.filter(Parent__isnull=False)
         for item in apps:
-            logger.debug("process_health_check %s " % item.Instance)
+            logger.debug("process_link_check %s " % item.Instance)
             try:
                 latency = None
                 if item.Latency:
@@ -185,7 +192,7 @@ def process_link_check():
                             oldStatus = healthObj.Status
                         healthObj.LastPoll = datetime.now()
                         if isOk:
-                            logger.debug("process_health_check %s is OK" % item.Instance)
+                            logger.debug("process_link_check %s is OK" % item.Instance)
                             healthObj.Status = HealthStatus.GREEN
                             healthObj.LastResponseTime = responseTime
                             if str(latency) and latency*1000 <= responseTime:
@@ -194,7 +201,7 @@ def process_link_check():
                                 healthObj.LastUptime = datetime.now()
                             
                         else:
-                            logger.debug("process_health_check %s is not OK" % item.Instance)
+                            logger.debug("process_link_check %s is not OK" % item.Instance)
                             #app goes down
                             healthObj.Status = HealthStatus.RED
                             if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.GREEN):
@@ -204,12 +211,14 @@ def process_link_check():
                         healthObj.save()
                 
             except Exception, ex:
-                logger.debug("process_health_check %s error, message : %s" % (item.Instance,ex.__str__()))
+                logger.debug("process_link_check %s error, message : %s" % (item.Instance,ex.__str__()))
                 pass
     except Exception, ex:
         logger.exception(ex)
-    logger.debug("end process_health_check")
-    
+    logger.debug("end process_link_check")
+    transaction.commit()
+
+@transaction.commit_manually    
 def process_ping_check():
     try:
         logger.debug("begin process_ping_check")
@@ -271,6 +280,7 @@ def process_ping_check():
     except Exception, ex:
         logger.exception(ex)
     logger.debug("end process_ping_check")
+    transaction.commit()
     
 def telnet(host, port):
     host_addr = ""
