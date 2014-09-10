@@ -205,13 +205,13 @@ def process_link_check():
                             if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.RED):
                                 healthObj.LastUptime = datetime.now()
                            
-                            if (healthObj.Last1HrTime and (healthObj.Last1HrTime + timedelta(hours=1)) <= datetime.now()) or not healthObj.Last1HrTime:
+                            if (healthObj.Last1HrTime and (healthObj.Last1HrTime + timedelta(minutes=1)) <= datetime.now()) or not healthObj.Last1HrTime:
                                 healthObj.Last1HrTime = datetime.now()
                                 lstValue = []
                                 if healthObj.Last24HrValue:
                                     lstValue = json.loads(healthObj.Last24HrValue)
-                                if lstValue and len(lstValue) > 0:
-                                    lstValue.pop()
+                                if lstValue and len(lstValue) >= 24:
+                                    lstValue.pop(0)
                                 if not is_get_graphite:
                                     is_get_graphite = True
                                     map_graphite = get_avg_response_time(1)
