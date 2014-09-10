@@ -54,6 +54,7 @@ class Application(models.Model):
     UpdatedDate = models.DateTimeField(auto_now=True)    
     Latency = models.IntegerField(null=True)
     Ip = models.CharField(max_length=100,null=True)
+    Enabled = models.IntegerField(default=1)
 
 class Configuration(models.Model):
     class Meta:
@@ -106,5 +107,7 @@ class Health(models.Model):
     LastUptime = models.DateTimeField(null=True)
     LastPoll = models.DateTimeField(null=True)
     LastResponseTime = models.IntegerField(null=True)
+    Last1HrTime = models.DateTimeField(null=True)
+    Last24HrValue = models.CharField(max_length=500, null=True)
     CreatedDate = models.DateTimeField(auto_now_add=True)
     UpdatedDate = models.DateTimeField(auto_now=True)

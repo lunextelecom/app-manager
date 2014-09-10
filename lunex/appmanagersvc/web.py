@@ -128,6 +128,7 @@ def save_config():
         updatedby = params.get('updatedby', '').strip()
         latency = params.get('latency', '')
         ip = params.get('ip', '')
+        enabled = params.get('enabled', '')
         assert updatedby, 'updatedby param can not null'
         code = success_code
         message = 'OK'
@@ -172,6 +173,8 @@ def save_config():
                 if ip:
                     app_obj.Ip = ip
                 app_obj.UpdatedBy = updatedby
+                if enabled:
+                    app_obj.Enabled = enabled
                 app_obj.save()
                 #put config change
                 if config_url:
@@ -264,6 +267,7 @@ def register_app():
             content = params.get('content', '')
             latency = params.get('latency', '')
             ip = params.get('ip', '')
+            enabled = params.get('enabled', 1)
             isCreateConf = False
             conf = Configuration(Application=app_obj,CreatedBy=createdBy)
             if config_url:
@@ -295,6 +299,7 @@ def register_app():
                 app_obj.Latency = latency
             if ip:
                 app_obj.Ip = ip
+            app_obj.Enabled = enabled
             app_obj.save()
             transaction.commit()
         else:
@@ -427,15 +432,13 @@ def list_health():
     try:
         params = dict(request.query.items())
         instance = params.get('instance', '').strip()
+        enabled = params.get('enabled', '')
         
         lstHealth = Health.objects.filter().order_by('Application__Instance', 'Type', '-LastPoll')
         if instance:
             lstHealth = lstHealth.filter(Application__Instance__icontains=instance)
-#         http://192.168.93.112:8001/render/?target=test.appmanager.*.responseTime.sum&maxDataPoints=1&format=json
-        
-        map24Hr = get_avg_response_time(24)
-        map1Hr = get_avg_response_time(1)
-        
+        if enabled:
+            lstHealth.filter(Application__Enabled=enabled)
         app_list = []
         for item in lstHealth:
             r = {}
@@ -450,9 +453,13 @@ def list_health():
             r['LastPoll'] = item.LastPoll.strftime('%m/%d/%Y %H:%M:%S') if item.LastPoll else None
             r['LastResponseTime'] = item.LastResponseTime if item.LastResponseTime else '' 
             r['Uptime'] = (time.time() - (mktime(item.LastUptime.timetuple()) + item.LastUptime.microsecond/1000000.0))*1000 if item.LastUptime else ''
-            metricName = item.MetricName.strip()
-            r['AvgLast1Hr'] = map1Hr.get(metricName) if map1Hr.get(metricName) else ''
-            r['AvgLast24Hr'] = map24Hr.get(metricName) if map24Hr.get(metricName) else ''
+            r['AvgLast1Hr'] = ''
+            r['AvgLast24Hr'] = ''
+            if item.Last24HrValue:
+                lst_value = json.loads(item.Last24HrValue)
+                if len(lst_value) > 0:
+                    r['AvgLast1Hr'] = lst_value[len[lst_value]-1]
+                    r['AvgLast24Hr'] = reduce(lambda x, y: x + y, lst_value) / len(lst_value)
             app_list.append(r)
         result['Result'] = app_list
     except Exception, ex:
@@ -460,26 +467,6 @@ def list_health():
         result = {'Code': error_code, 'Message': ex.__str__()}
     return result
 
-def get_avg_response_time(numHours):
-    map = {}
-    rawData = None
-    try:
-        url = "http://{0}:{1}/render/?target={2}.*.*.*.sum&maxDataPoints=1&format=json&from=-{3}h".format(settings.GRAPHITE_SERVER, settings.GRAPHITE_OUTPUT_PORT, settings.GRAPHITE_PREFIX_NAME, numHours)
-        rawData = requests.get(url ,timeout=5)
-        logger.info('graphite get avg response time : ' + url)
-    except Exception, ex:
-        pass
-    if rawData:
-        try:
-            obj = json.loads(rawData.content)
-            for child in obj:
-                target = child.get("target")
-                target = lower(child.get("target").replace(settings.GRAPHITE_PREFIX_NAME +'.','').replace('.sum','')).strip()
-                datapoints = int(child.get("datapoints")[0][0])
-                map[target] = datapoints
-        except Exception, ex:
-            pass
-    return map
 #====================================Init======================================#
 def init_server():
     from django.conf import settings

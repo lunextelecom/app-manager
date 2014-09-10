@@ -8,24 +8,27 @@ Created on Aug 18, 2014
 import gc
 import logging
 import os
+import socket
 import sys
 import time
 import djangoenv
 import requests
 import statsd
 import simplejson as json
-import socket
-from django.db.models import Q
+
+from datetime import datetime, timedelta
+from string import lower
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.template import Context
 from django.template.loader import get_template
-from datetime import datetime
+
 from lunex.appmanagersvc.common import emailutils, httputils
 from lunex.appmanagersvc.models import Application, Health, \
     HealthStatus, HealthType, HealthConf
-from lunex.appmanagersvc.utils.daemon import Daemon
 from lunex.appmanagersvc.utils import Utils
+from lunex.appmanagersvc.utils.daemon import Daemon
 
 
 settings.LOGGING_OUTPUT = "/tmp/HealthCheck_daemon.log"
@@ -167,6 +170,8 @@ def process_link_check():
     try:
         logger.debug("begin process_link_check")
         apps = Application.objects.filter(Parent__isnull=False)
+        map_graphite = {}
+        is_get_graphite = False
         for item in apps:
             logger.debug("process_link_check %s " % item.Instance)
             try:
@@ -199,7 +204,20 @@ def process_link_check():
                                 healthObj.Status = HealthStatus.YELLOW
                             if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.RED):
                                 healthObj.LastUptime = datetime.now()
-                            
+                           
+                            if (healthObj.Last1HrTime and (healthObj.Last1HrTime + timedelta(hours=1)) <= datetime.now()) or not healthObj.Last1HrTime:
+                                healthObj.Last1HrTime = datetime.now()
+                                lstValue = []
+                                if healthObj.Last24HrValue:
+                                    lstValue = json.loads(healthObj.Last24HrValue)
+                                if lstValue and len(lstValue) > 0:
+                                    lstValue.pop()
+                                if not is_get_graphite:
+                                    is_get_graphite = True
+                                    map_graphite = get_avg_response_time(1)
+                                if map_graphite and map_graphite.has_key(metricName):
+                                    lstValue.append(map_graphite.get(metricName))
+                                healthObj.Last24HrValue = json.dumps(lstValue)
                         else:
                             logger.debug("process_link_check %s is not OK" % item.Instance)
                             #app goes down
@@ -223,6 +241,8 @@ def process_ping_check():
     try:
         logger.debug("begin process_ping_check")
         apps = Application.objects.filter(Parent__isnull=False)
+        map_graphite = {}
+        is_get_graphite = False
         for item in apps:
             logger.debug("process_ping_check %s " % item.Instance)
             try:
@@ -263,6 +283,20 @@ def process_ping_check():
                         if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.RED):
                             healthObj.LastUptime = datetime.now()
                         
+                        if (healthObj.Last1HrTime and (healthObj.Last1HrTime + timedelta(hours=1)) <= datetime.now()) or not healthObj.Last1HrTime:
+                            healthObj.Last1HrTime = datetime.now()
+                            lstValue = []
+                            if healthObj.Last24HrValue:
+                                lstValue = json.loads(healthObj.Last24HrValue)
+                            if lstValue and len(lstValue) > 0:
+                                lstValue.pop()
+                            if not is_get_graphite:
+                                is_get_graphite = True
+                                map_graphite = get_avg_response_time(1)
+                            if map_graphite and map_graphite.has_key(metricName):
+                                lstValue.append(map_graphite.get(metricName))
+                            healthObj.Last24HrValue = json.dumps(lstValue)
+                        
                     else:
                         logger.debug("process_ping_check %s is not OK" % item.Instance)
                         #app goes down
@@ -282,6 +316,27 @@ def process_ping_check():
     logger.debug("end process_ping_check")
     transaction.commit()
     
+def get_avg_response_time(numHours):
+    map = {}
+    rawData = None
+    try:
+        url = "http://{0}:{1}/render/?target={2}.*.*.*.sum&maxDataPoints=1&format=json&from=-{3}h".format(settings.GRAPHITE_SERVER, settings.GRAPHITE_OUTPUT_PORT, settings.GRAPHITE_PREFIX_NAME, numHours)
+        rawData = requests.get(url ,timeout=5)
+        logger.info('graphite get avg response time : ' + url)
+    except Exception, ex:
+        pass
+    if rawData:
+        try:
+            obj = json.loads(rawData.content)
+            for child in obj:
+                target = child.get("target")
+                target = lower(child.get("target").replace(settings.GRAPHITE_PREFIX_NAME +'.','').replace('.sum','')).strip()
+                datapoints = int(child.get("datapoints")[0][0])
+                map[target] = datapoints
+        except Exception, ex:
+            pass
+    return map
+
 def telnet(host, port):
     host_addr = ""
 
