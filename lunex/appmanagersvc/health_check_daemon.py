@@ -205,7 +205,7 @@ def process_link_check():
                             if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.RED):
                                 healthObj.LastUptime = datetime.now()
                            
-                            if (healthObj.Last1HrTime and (healthObj.Last1HrTime + timedelta(minutes=1)) <= datetime.now()) or not healthObj.Last1HrTime:
+                            if (healthObj.Last1HrTime and (healthObj.Last1HrTime + timedelta(hours=1)) <= datetime.now()) or not healthObj.Last1HrTime:
                                 healthObj.Last1HrTime = datetime.now()
                                 lstValue = []
                                 if healthObj.Last24HrValue:
