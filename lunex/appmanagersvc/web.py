@@ -458,7 +458,7 @@ def list_health():
             if item.Last24HrValue:
                 lst_value = json.loads(item.Last24HrValue)
                 if len(lst_value) > 0:
-                    r['AvgLast1Hr'] = lst_value[len[lst_value]-1]
+                    r['AvgLast1Hr'] = lst_value[len(lst_value)-1]
                     r['AvgLast24Hr'] = reduce(lambda x, y: x + y, lst_value) / len(lst_value)
             app_list.append(r)
         result['Result'] = app_list
