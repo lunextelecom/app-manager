@@ -413,6 +413,7 @@ def get_instance_detail(instance):
     r['HealthUrl'] = ''
     r['Latency'] = instance.Latency if str(instance.Latency) else ''
     r['Ip'] = instance.Ip if instance.Ip else ''
+    r['Enabled'] = instance.Enabled if instance.Enabled else 1
     conf = None
     if Configuration.objects.filter(Application=instance).exists() :
         conf = Configuration.objects.filter(Application=instance)[0]
