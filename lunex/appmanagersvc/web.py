@@ -21,7 +21,6 @@ from lunex.appmanagersvc.models import Application, Configuration, Health, Healt
 from string import upper, lower
 from time import mktime
 from lunex.appmanagersvc.utils import Utils
-from lunex.common import IDD_CODES
 
 app = bottle.Bottle()
 
