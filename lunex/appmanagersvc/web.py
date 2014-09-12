@@ -173,7 +173,7 @@ def save_config():
                 if ip:
                     app_obj.Ip = ip
                 app_obj.UpdatedBy = updatedby
-                if enabled:
+                if str(enabled):
                     app_obj.Enabled = enabled
                 app_obj.save()
                 #put config change
