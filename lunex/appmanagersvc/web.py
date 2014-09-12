@@ -438,8 +438,11 @@ def list_health():
         lstHealth = Health.objects.filter().order_by('Application__Instance', 'Type', '-LastPoll')
         if instance:
             lstHealth = lstHealth.filter(Application__Instance__icontains=instance)
-        if enabled:
-            lstHealth.filter(Application__Enabled=enabled)
+        if str(enabled):
+            if int(enabled) == 1:
+                lstHealth= lstHealth.filter(Application__Parent__Enabled=1, Application__Enabled=1)
+            else:
+                lstHealth = lstHealth.filter(Q(Application__Parent__Enabled=0)|Q(Application__Enabled=0))
         app_list = []
         for item in lstHealth:
             r = {}
