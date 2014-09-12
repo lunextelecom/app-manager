@@ -21,6 +21,7 @@ from lunex.appmanagersvc.models import Application, Configuration, Health, Healt
 from string import upper, lower
 from time import mktime
 from lunex.appmanagersvc.utils import Utils
+from lunex.common import IDD_CODES
 
 app = bottle.Bottle()
 
@@ -461,6 +462,7 @@ def list_health():
                 if len(lst_value) > 0:
                     r['AvgLast1Hr'] = lst_value[len(lst_value)-1]
                     r['AvgLast24Hr'] = reduce(lambda x, y: x + y, lst_value) / len(lst_value)
+            r['MetricName'] = item.MetricName if item.MetricName else ''
             app_list.append(r)
         result['Result'] = app_list
     except Exception, ex:
@@ -474,6 +476,7 @@ def init_server():
     
 init_server()
 
+         
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
