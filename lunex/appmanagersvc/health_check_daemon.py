@@ -80,28 +80,26 @@ def _run_service():
         time.sleep(settings.SLEEPING_TIME);
     logger.info('health_check_daemon stopped');
 
-def send_mail(instanceName):
+def send_mail(subject, content):
     result = {'Code': 1, 'Message': 'OK'}
     try:
         template = get_template('emails/instance_down.html')
         from_email = settings.FROM_EMAIL
         to_emails = settings.TO_EMAILS
         cc = []
-        subject = 'Instance may go down'
-        contents = template.render(Context({'instanceName': instanceName}))
+        contents = template.render(Context({'content': content}))
         
         server = emailutils.connect_to_server(settings.EMAIL_HOST, settings.EMAIL_PORT, settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
         emailutils.send_email_cc_html(from_email, to_emails, subject, contents, server, cc)
-        logger.debug('Instance {0} may go down, send email to '.format(instanceName, str(to_emails)))
+        logger.debug('{0}, send email to '.format(contents, str(to_emails)))
     except Exception, ex:
         logger.exception(ex)
         result = {'Code': -1, 'Message': ex.__str__()}
     return result
 
-def send_sms(instanceName):
+def send_sms(msg):
     result = {'Code': 1, 'Message': 'OK'}
     try:
-        msg = "Instance {0} may go down. Please verify asap".format(instanceName)
         data = """<Data xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
             <Message>{0}</Message>
             </Data>
@@ -202,8 +200,13 @@ def process_link_check():
                             healthObj.LastResponseTime = responseTime
                             if str(latency) and latency*1000 <= responseTime:
                                 healthObj.Status = HealthStatus.YELLOW
-                            if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.RED):
+                            if (not str(oldStatus)) or (str(oldStatus) and oldStatus==HealthStatus.RED):
                                 healthObj.LastUptime = datetime.now()
+                                if str(oldStatus) and oldStatus==HealthStatus.RED:
+                                    subject = 'Instance has been restarted'
+                                    content = 'Instance  {instanceName} has been restarted.'.format(instanceName=item.Instance)
+                                    send_mail(subject, content)
+                                    send_sms(content)
                            
                             if (healthObj.Last1HrTime and (healthObj.Last1HrTime + timedelta(hours=1)) <= datetime.now()) or not healthObj.Last1HrTime:
                                 healthObj.Last1HrTime = datetime.now()
@@ -222,10 +225,12 @@ def process_link_check():
                             logger.debug("process_link_check %s is not OK" % item.Instance)
                             #app goes down
                             healthObj.Status = HealthStatus.RED
-                            if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.GREEN):
+                            if (not str(oldStatus)) or (str(oldStatus) and oldStatus==HealthStatus.GREEN):
                                 healthObj.LastDowntime = datetime.now()
-                                send_mail(item.Instance)
-                                send_sms(item.Instance)
+                                subject = 'Instance may go down'
+                                content = 'Instance {instanceName} may go down. Please verify asap.'.format(instanceName=item.Instance)
+                                send_mail(subject, content)
+                                send_sms(content)
                         healthObj.save()
                 
             except Exception, ex:
@@ -280,8 +285,13 @@ def process_ping_check():
                         healthObj.LastResponseTime = responseTime
                         if str(latency) and latency*1000 <= responseTime:
                             healthObj.Status = HealthStatus.YELLOW
-                        if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.RED):
+                        if (not str(oldStatus)) or (str(oldStatus) and oldStatus==HealthStatus.RED):
                             healthObj.LastUptime = datetime.now()
+                            if str(oldStatus) and oldStatus==HealthStatus.RED:
+                                subject = 'Instance has been restarted'
+                                content = 'Instance  {instanceName} has been restarted.'.format(instanceName=item.Instance)
+                                send_mail(subject, content)
+                                send_sms(content)
                         
                         if (healthObj.Last1HrTime and (healthObj.Last1HrTime + timedelta(hours=1)) <= datetime.now()) or not healthObj.Last1HrTime:
                             healthObj.Last1HrTime = datetime.now()
@@ -301,10 +311,12 @@ def process_ping_check():
                         logger.debug("process_ping_check %s is not OK" % item.Instance)
                         #app goes down
                         healthObj.Status = HealthStatus.RED
-                        if (not oldStatus) or (oldStatus and oldStatus==HealthStatus.GREEN):
+                        if (not str(oldStatus)) or (str(oldStatus) and oldStatus==HealthStatus.GREEN):
                             healthObj.LastDowntime = datetime.now()
-                            send_mail(item.Instance)
-                            send_sms(item.Instance)
+                            subject = 'Instance may go down'
+                            content = 'Instance {instanceName} may go down. Please verify asap.'.format(instanceName=item.Instance)
+                            send_mail(subject, content)
+                            send_sms(content)
                     healthObj.save()
                 else:
                     logger.debug("conf/conf.ip of %s is null" % item.Instance)
